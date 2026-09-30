@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BusinessManagement.App/BusinessManagement.App.csproj" />
+    <Project Path="src/BusinessManagement.Core/BusinessManagement.Core.csproj" />
+  </Folder>
+</Solution>

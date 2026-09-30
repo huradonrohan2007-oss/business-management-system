@@ -13,52 +13,137 @@ namespace BusinessManagement.App
         private readonly InventoryRepository _repository;
         private DataGridView dgvInventory;
         private Button btnGenerateInvoice;
+        private Button btnAddProduct;
+        private TextBox txtSearch;
+        private TableLayoutPanel mainLayout;
+        private Panel searchPanel;
 
         public Form1()
         {
             InitializeComponent();
-            SetupCustomUI();
             _repository = new InventoryRepository();
+            SetupCustomUI();
             LoadInventory();
         }
 
         private void SetupCustomUI()
         {
             this.Text = "Business Management System - Inventory Control";
-            this.Width = 850;
-            this.Height = 520;
+            this.Width = 1000;
+            this.Height = 600;
+            this.StartPosition = FormStartPosition.CenterScreen;
 
+            // 1. Root Layout Container
+            mainLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3
+            };
+
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50f));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 55f));
+
+            // 2. Top Action Bar Panel (Row 0)
+            searchPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0)
+            };
+
+            Label lblSearch = new Label
+            {
+                Text = "Search Inventory:",
+                AutoSize = true,
+                Location = new Point(15, 16),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+
+            txtSearch = new TextBox
+            {
+                Location = new Point(140, 13),
+                Width = 320,
+                Font = new Font("Segoe UI", 10f)
+            };
+            txtSearch.TextChanged += TxtSearch_TextChanged;
+
+            btnAddProduct = new Button
+            {
+                Text = "+ Add New Product",
+                Location = new Point(480, 10),
+                Width = 160,
+                Height = 30,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.LightSteelBlue
+            };
+            btnAddProduct.Click += BtnAddProduct_Click;
+
+            searchPanel.Controls.Add(lblSearch);
+            searchPanel.Controls.Add(txtSearch);
+            searchPanel.Controls.Add(btnAddProduct);
+
+            // 3. DataGridView (Row 1)
             dgvInventory = new DataGridView
             {
-                Dock = DockStyle.Top,
-                Height = 360,
+                Dock = DockStyle.Fill,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false
+                MultiSelect = false,
+                ReadOnly = true,
+                AllowUserToAddRows = false
             };
             dgvInventory.DataBindingComplete += DgvInventory_DataBindingComplete;
 
+            // 4. Action Button (Row 2)
             btnGenerateInvoice = new Button
             {
                 Text = "Generate PDF Invoice for Selected Item",
-                Dock = DockStyle.Bottom,
-                Height = 50,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Margin = new Padding(5)
             };
             btnGenerateInvoice.Click += BtnGenerateInvoice_Click;
 
-            this.Controls.Add(dgvInventory);
-            this.Controls.Add(btnGenerateInvoice);
+            // Assemble controls into TableLayoutPanel
+            mainLayout.Controls.Add(searchPanel, 0, 0);
+            mainLayout.Controls.Add(dgvInventory, 0, 1);
+            mainLayout.Controls.Add(btnGenerateInvoice, 0, 2);
+
+            this.Controls.Add(mainLayout);
         }
 
-        private void LoadInventory()
+        private void LoadInventory(string searchQuery = "")
         {
-            dgvInventory.DataSource = _repository.GetProducts();
+            var data = string.IsNullOrWhiteSpace(searchQuery)
+                ? _repository.GetProducts()
+                : _repository.SearchProducts(searchQuery);
+
+            dgvInventory.DataSource = null;
+            dgvInventory.DataSource = data;
+        }
+
+        private void TxtSearch_TextChanged(object sender, EventArgs e)
+        {
+            LoadInventory(txtSearch.Text.Trim());
+        }
+
+        private void BtnAddProduct_Click(object sender, EventArgs e)
+        {
+            using (var addForm = new AddProductForm())
+            {
+                if (addForm.ShowDialog() == DialogResult.OK && addForm.NewProduct != null)
+                {
+                    _repository.AddProduct(addForm.NewProduct);
+                    LoadInventory(); // Refresh grid automatically
+                    MessageBox.Show("New product saved successfully to SQLite database!", "Product Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
         }
 
         private void DgvInventory_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
         {
-            // Highlight low-stock items in soft red
             foreach (DataGridViewRow row in dgvInventory.Rows)
             {
                 if (row.DataBoundItem is Product product)
@@ -67,6 +152,11 @@ namespace BusinessManagement.App
                     {
                         row.DefaultCellStyle.BackColor = Color.MistyRose;
                         row.DefaultCellStyle.ForeColor = Color.DarkRed;
+                    }
+                    else
+                    {
+                        row.DefaultCellStyle.BackColor = Color.White;
+                        row.DefaultCellStyle.ForeColor = Color.Black;
                     }
                 }
             }
@@ -82,7 +172,6 @@ namespace BusinessManagement.App
 
             var selectedProduct = (Product)dgvInventory.SelectedRows[0].DataBoundItem;
 
-            // Construct payload dynamically from selected grid row
             var invoicePayload = new
             {
                 invoice_id = new Random().Next(1000, 9999),

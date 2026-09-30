@@ -1,17 +1,170 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.Data.Sqlite;
 
 namespace BusinessManagement.Core
 {
     public class InventoryRepository
     {
+        private readonly string _connectionString = "Data Source=inventory.db";
+
+        public InventoryRepository()
+        {
+            InitializeDatabase();
+        }
+
+        private void InitializeDatabase()
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                string createTableQuery = @"
+                    CREATE TABLE IF NOT EXISTS Products (
+                        ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
+                        SKU TEXT UNIQUE NOT NULL,
+                        ProductName TEXT NOT NULL,
+                        Category TEXT,
+                        UnitPrice DECIMAL(10,2) NOT NULL,
+                        StockQuantity INTEGER NOT NULL DEFAULT 0,
+                        ReorderLevel INTEGER NOT NULL DEFAULT 5
+                    );";
+
+                using (var command = new SqliteCommand(createTableQuery, connection))
+                {
+                    command.ExecuteNonQuery();
+                }
+
+                string countQuery = "SELECT COUNT(*) FROM Products;";
+                using (var countCmd = new SqliteCommand(countQuery, connection))
+                {
+                    long count = (long)countCmd.ExecuteScalar();
+                    if (count == 0)
+                    {
+                        string seedQuery = @"
+                            INSERT INTO Products (SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel)
+                            VALUES 
+                            ('LOGI-MX01', 'Wireless Mouse', 'Peripherals', 25.00, 15, 5),
+                            ('KEY-MECH02', 'Mechanical Keyboard', 'Peripherals', 100.00, 8, 3),
+                            ('MON-4K27', '27-inch 4K Monitor', 'Displays', 350.00, 2, 5);";
+
+                        using (var seedCmd = new SqliteCommand(seedQuery, connection))
+                        {
+                            seedCmd.ExecuteNonQuery();
+                        }
+                    }
+                }
+            }
+        }
+
         public List<Product> GetProducts()
         {
-            return new List<Product>
+            var products = new List<Product>();
+
+            using (var connection = new SqliteConnection(_connectionString))
             {
-                new Product { ProductID = 1, SKU = "LOGI-MX01", ProductName = "Wireless Mouse", Category = "Peripherals", UnitPrice = 25.00m, StockQuantity = 15, ReorderLevel = 5 },
-                new Product { ProductID = 2, SKU = "KEY-MECH02", ProductName = "Mechanical Keyboard", Category = "Peripherals", UnitPrice = 100.00m, StockQuantity = 8, ReorderLevel = 3 },
-                new Product { ProductID = 3, SKU = "MON-4K27", ProductName = "27-inch 4K Monitor", Category = "Displays", UnitPrice = 350.00m, StockQuantity = 2, ReorderLevel = 5 }
-            };
+                connection.Open();
+                string selectQuery = "SELECT ProductID, SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel FROM Products;";
+
+                using (var command = new SqliteCommand(selectQuery, connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        products.Add(new Product
+                        {
+                            ProductID = reader.GetInt32(0),
+                            SKU = reader.GetString(1),
+                            ProductName = reader.GetString(2),
+                            Category = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                            UnitPrice = reader.GetDecimal(4),
+                            StockQuantity = reader.GetInt32(5),
+                            ReorderLevel = reader.GetInt32(6)
+                        });
+                    }
+                }
+            }
+
+            return products;
+        }
+
+        public List<Product> SearchProducts(string query)
+        {
+            var products = new List<Product>();
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                string searchSql = @"
+                    SELECT ProductID, SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel 
+                    FROM Products 
+                    WHERE SKU LIKE @query 
+                       OR ProductName LIKE @query 
+                       OR Category LIKE @query;";
+
+                using (var command = new SqliteCommand(searchSql, connection))
+                {
+                    command.Parameters.AddWithValue("@query", $"%{query}%");
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            products.Add(new Product
+                            {
+                                ProductID = reader.GetInt32(0),
+                                SKU = reader.GetString(1),
+                                ProductName = reader.GetString(2),
+                                Category = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                                UnitPrice = reader.GetDecimal(4),
+                                StockQuantity = reader.GetInt32(5),
+                                ReorderLevel = reader.GetInt32(6)
+                            });
+                        }
+                    }
+                }
+            }
+
+            return products;
+        }
+
+        public void AddProduct(Product product)
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                string insertSql = @"
+                    INSERT INTO Products (SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel)
+                    VALUES (@SKU, @ProductName, @Category, @UnitPrice, @StockQuantity, @ReorderLevel);";
+
+                using (var command = new SqliteCommand(insertSql, connection))
+                {
+                    command.Parameters.AddWithValue("@SKU", product.SKU);
+                    command.Parameters.AddWithValue("@ProductName", product.ProductName);
+                    command.Parameters.AddWithValue("@Category", product.Category ?? string.Empty);
+                    command.Parameters.AddWithValue("@UnitPrice", product.UnitPrice);
+                    command.Parameters.AddWithValue("@StockQuantity", product.StockQuantity);
+                    command.Parameters.AddWithValue("@ReorderLevel", product.ReorderLevel);
+
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void UpdateStock(int productId, int newQuantity)
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                string updateSql = "UPDATE Products SET StockQuantity = @StockQuantity WHERE ProductID = @ProductID;";
+
+                using (var command = new SqliteCommand(updateSql, connection))
+                {
+                    command.Parameters.AddWithValue("@StockQuantity", newQuantity);
+                    command.Parameters.AddWithValue("@ProductID", productId);
+
+                    command.ExecuteNonQuery();
+                }
+            }
         }
     }
 }

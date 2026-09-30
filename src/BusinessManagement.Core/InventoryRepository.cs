@@ -166,5 +166,81 @@ namespace BusinessManagement.Core
                 }
             }
         }
+
+        public bool DeductStock(int productId, int quantityToDeduct)
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                string checkSql = "SELECT StockQuantity FROM Products WHERE ProductID = @ProductID;";
+                using (var checkCmd = new SqliteCommand(checkSql, connection))
+                {
+                    checkCmd.Parameters.AddWithValue("@ProductID", productId);
+                    var result = checkCmd.ExecuteScalar();
+
+                    if (result == null) return false;
+
+                    int currentStock = Convert.ToInt32(result);
+                    if (currentStock < quantityToDeduct)
+                    {
+                        return false;
+                    }
+                }
+
+                string updateSql = "UPDATE Products SET StockQuantity = StockQuantity - @Qty WHERE ProductID = @ProductID;";
+                using (var command = new SqliteCommand(updateSql, connection))
+                {
+                    command.Parameters.AddWithValue("@Qty", quantityToDeduct);
+                    command.Parameters.AddWithValue("@ProductID", productId);
+                    command.ExecuteNonQuery();
+                }
+            }
+            return true;
+        }
+
+        public bool DeductStockBatch(List<CartItem> cartItems)
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (var item in cartItems)
+                        {
+                            string checkSql = "SELECT StockQuantity FROM Products WHERE ProductID = @ProductID;";
+                            using (var checkCmd = new SqliteCommand(checkSql, connection, transaction))
+                            {
+                                checkCmd.Parameters.AddWithValue("@ProductID", item.ProductID);
+                                var result = checkCmd.ExecuteScalar();
+                                if (result == null || Convert.ToInt32(result) < item.Quantity)
+                                {
+                                    transaction.Rollback();
+                                    return false; // Insufficient stock for this item
+                                }
+                            }
+
+                            string updateSql = "UPDATE Products SET StockQuantity = StockQuantity - @Qty WHERE ProductID = @ProductID;";
+                            using (var updateCmd = new SqliteCommand(updateSql, connection, transaction))
+                            {
+                                updateCmd.Parameters.AddWithValue("@Qty", item.Quantity);
+                                updateCmd.Parameters.AddWithValue("@ProductID", item.ProductID);
+                                updateCmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                        return true;
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        return false;
+                    }
+                }
+            }
+        }
     }
 }

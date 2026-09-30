@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
 using BusinessManagement.Core;
@@ -11,12 +13,18 @@ namespace BusinessManagement.App
     public partial class Form1 : Form
     {
         private readonly InventoryRepository _repository;
+        private readonly List<CartItem> _cart = new List<CartItem>();
+
+        // Controls
         private DataGridView dgvInventory;
-        private Button btnGenerateInvoice;
+        private DataGridView dgvCart;
         private Button btnAddProduct;
+        private Button btnAddToCart;
+        private Button btnRemoveFromCart;
+        private Button btnCheckout;
         private TextBox txtSearch;
-        private TableLayoutPanel mainLayout;
-        private Panel searchPanel;
+        private NumericUpDown numQuantity;
+        private Label lblGrandTotal;
 
         public Form1()
         {
@@ -24,59 +32,57 @@ namespace BusinessManagement.App
             _repository = new InventoryRepository();
             SetupCustomUI();
             LoadInventory();
+            UpdateCartGrid();
         }
 
         private void SetupCustomUI()
         {
-            this.Text = "Business Management System - Inventory Control";
-            this.Width = 1000;
-            this.Height = 600;
+            this.Text = "Business Management System - Point of Sale & Inventory";
+            this.Width = 1200;
+            this.Height = 700;
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            // 1. Root Layout Container
-            mainLayout = new TableLayoutPanel
+            // Main Split Panel Layout
+            var mainLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55f)); // Left: Catalog
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45f)); // Right: Cart
+
+            // ================= LEFT PANE: CATALOG =================
+            var leftPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 3,
                 ColumnCount = 1,
-                RowCount = 3
+                Padding = new Padding(5)
             };
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 45f));
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            leftPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 45f));
 
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50f));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 55f));
-
-            // 2. Top Action Bar Panel (Row 0)
-            searchPanel = new Panel
+            // Search Bar & Add Product Panel
+            var searchPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(0)
+                FlowDirection = FlowDirection.LeftToRight
             };
 
-            Label lblSearch = new Label
-            {
-                Text = "Search Inventory:",
-                AutoSize = true,
-                Location = new Point(15, 16),
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
-            };
-
-            txtSearch = new TextBox
-            {
-                Location = new Point(140, 13),
-                Width = 320,
-                Font = new Font("Segoe UI", 10f)
-            };
-            txtSearch.TextChanged += TxtSearch_TextChanged;
+            var lblSearch = new Label { Text = "Search:", AutoSize = true, Margin = new Padding(0, 8, 5, 0), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+            txtSearch = new TextBox { Width = 220, Font = new Font("Segoe UI", 9.5f) };
+            txtSearch.TextChanged += (s, e) => LoadInventory(txtSearch.Text.Trim());
 
             btnAddProduct = new Button
             {
-                Text = "+ Add New Product",
-                Location = new Point(480, 10),
-                Width = 160,
-                Height = 30,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                BackColor = Color.LightSteelBlue
+                Text = "+ New Product",
+                Width = 120,
+                Height = 28,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                BackColor = Color.LightSteelBlue,
+                Margin = new Padding(10, 0, 0, 0)
             };
             btnAddProduct.Click += BtnAddProduct_Click;
 
@@ -84,7 +90,7 @@ namespace BusinessManagement.App
             searchPanel.Controls.Add(txtSearch);
             searchPanel.Controls.Add(btnAddProduct);
 
-            // 3. DataGridView (Row 1)
+            // Inventory DataGrid
             dgvInventory = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -96,20 +102,125 @@ namespace BusinessManagement.App
             };
             dgvInventory.DataBindingComplete += DgvInventory_DataBindingComplete;
 
-            // 4. Action Button (Row 2)
-            btnGenerateInvoice = new Button
+            // Add to Cart Controls
+            var addToCartPanel = new FlowLayoutPanel
             {
-                Text = "Generate PDF Invoice for Selected Item",
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight
+            };
+
+            var lblQty = new Label { Text = "Qty:", AutoSize = true, Margin = new Padding(0, 8, 5, 0), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+            numQuantity = new NumericUpDown { Value = 1, Minimum = 1, Maximum = 999, Width = 70, Font = new Font("Segoe UI", 9.5f) };
+
+            btnAddToCart = new Button
+            {
+                Text = "Add to Cart ➔",
+                Width = 140,
+                Height = 30,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.DarkSeaGreen,
+                ForeColor = Color.White,
+                Margin = new Padding(15, 0, 0, 0)
+            };
+            btnAddToCart.Click += BtnAddToCart_Click;
+
+            addToCartPanel.Controls.Add(lblQty);
+            addToCartPanel.Controls.Add(numQuantity);
+            addToCartPanel.Controls.Add(btnAddToCart);
+
+            leftPanel.Controls.Add(searchPanel, 0, 0);
+            leftPanel.Controls.Add(dgvInventory, 0, 1);
+            leftPanel.Controls.Add(addToCartPanel, 0, 2);
+
+            // ================= RIGHT PANE: CART =================
+            var rightPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 3,
+                ColumnCount = 1,
+                Padding = new Padding(5)
+            };
+            rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 45f));
+            rightPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            rightPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 55f));
+
+            var cartHeaderPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight
+            };
+
+            var lblCartTitle = new Label
+            {
+                Text = "Current Order Cart",
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                AutoSize = true,
+                Margin = new Padding(0, 5, 15, 0)
+            };
+
+            btnRemoveFromCart = new Button
+            {
+                Text = "Remove Selected Item",
+                Width = 160,
+                Height = 28,
+                Font = new Font("Segoe UI", 8.5f),
+                BackColor = Color.MistyRose
+            };
+            btnRemoveFromCart.Click += BtnRemoveFromCart_Click;
+
+            cartHeaderPanel.Controls.Add(lblCartTitle);
+            cartHeaderPanel.Controls.Add(btnRemoveFromCart);
+
+            // Cart DataGrid
+            dgvCart = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                ReadOnly = true,
+                AllowUserToAddRows = false
+            };
+
+            // Total & Checkout Panel
+            var checkoutPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            checkoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40f));
+            checkoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60f));
+
+            lblGrandTotal = new Label
+            {
+                Text = "Total: $0.00",
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            btnCheckout = new Button
+            {
+                Text = "Checkout & Print Invoice PDF",
                 Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                BackColor = Color.SteelBlue,
+                ForeColor = Color.White,
                 Margin = new Padding(5)
             };
-            btnGenerateInvoice.Click += BtnGenerateInvoice_Click;
+            btnCheckout.Click += BtnCheckout_Click;
 
-            // Assemble controls into TableLayoutPanel
-            mainLayout.Controls.Add(searchPanel, 0, 0);
-            mainLayout.Controls.Add(dgvInventory, 0, 1);
-            mainLayout.Controls.Add(btnGenerateInvoice, 0, 2);
+            checkoutPanel.Controls.Add(lblGrandTotal, 0, 0);
+            checkoutPanel.Controls.Add(btnCheckout, 1, 0);
+
+            rightPanel.Controls.Add(cartHeaderPanel, 0, 0);
+            rightPanel.Controls.Add(dgvCart, 0, 1);
+            rightPanel.Controls.Add(checkoutPanel, 0, 2);
+
+            // Assemble Main Layout
+            mainLayout.Controls.Add(leftPanel, 0, 0);
+            mainLayout.Controls.Add(rightPanel, 1, 0);
 
             this.Controls.Add(mainLayout);
         }
@@ -124,69 +235,87 @@ namespace BusinessManagement.App
             dgvInventory.DataSource = data;
         }
 
-        private void TxtSearch_TextChanged(object sender, EventArgs e)
+        private void UpdateCartGrid()
         {
-            LoadInventory(txtSearch.Text.Trim());
+            dgvCart.DataSource = null;
+            dgvCart.DataSource = _cart.ToList();
+
+            decimal total = _cart.Sum(item => item.Subtotal);
+            lblGrandTotal.Text = $"Total: ${total:N2}";
         }
 
-        private void BtnAddProduct_Click(object sender, EventArgs e)
-        {
-            using (var addForm = new AddProductForm())
-            {
-                if (addForm.ShowDialog() == DialogResult.OK && addForm.NewProduct != null)
-                {
-                    _repository.AddProduct(addForm.NewProduct);
-                    LoadInventory(); // Refresh grid automatically
-                    MessageBox.Show("New product saved successfully to SQLite database!", "Product Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
-        }
-
-        private void DgvInventory_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
-        {
-            foreach (DataGridViewRow row in dgvInventory.Rows)
-            {
-                if (row.DataBoundItem is Product product)
-                {
-                    if (product.StockQuantity <= product.ReorderLevel)
-                    {
-                        row.DefaultCellStyle.BackColor = Color.MistyRose;
-                        row.DefaultCellStyle.ForeColor = Color.DarkRed;
-                    }
-                    else
-                    {
-                        row.DefaultCellStyle.BackColor = Color.White;
-                        row.DefaultCellStyle.ForeColor = Color.Black;
-                    }
-                }
-            }
-        }
-
-        private void BtnGenerateInvoice_Click(object sender, EventArgs e)
+        private void BtnAddToCart_Click(object sender, EventArgs e)
         {
             if (dgvInventory.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Please select a product row from the grid first.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select a product from the catalog.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            var selectedProduct = (Product)dgvInventory.SelectedRows[0].DataBoundItem;
+            var product = (Product)dgvInventory.SelectedRows[0].DataBoundItem;
+            int desiredQty = (int)numQuantity.Value;
 
+            if (desiredQty > product.StockQuantity)
+            {
+                MessageBox.Show($"Cannot add {desiredQty} units. Only {product.StockQuantity} in stock!", "Stock Limit Exceeded", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var existingCartItem = _cart.FirstOrDefault(c => c.ProductID == product.ProductID);
+            if (existingCartItem != null)
+            {
+                if (existingCartItem.Quantity + desiredQty > product.StockQuantity)
+                {
+                    MessageBox.Show($"Adding {desiredQty} more exceeds available stock ({product.StockQuantity}).", "Stock Limit Exceeded", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                existingCartItem.Quantity += desiredQty;
+            }
+            else
+            {
+                _cart.Add(new CartItem
+                {
+                    ProductID = product.ProductID,
+                    SKU = product.SKU,
+                    ProductName = product.ProductName,
+                    UnitPrice = product.UnitPrice,
+                    Quantity = desiredQty
+                });
+            }
+
+            UpdateCartGrid();
+        }
+
+        private void BtnRemoveFromCart_Click(object sender, EventArgs e)
+        {
+            if (dgvCart.SelectedRows.Count == 0) return;
+
+            var selectedCartItem = (CartItem)dgvCart.SelectedRows[0].DataBoundItem;
+            _cart.Remove(selectedCartItem);
+            UpdateCartGrid();
+        }
+
+        private void BtnCheckout_Click(object sender, EventArgs e)
+        {
+            if (_cart.Count == 0)
+            {
+                MessageBox.Show("Cart is empty. Add products before checking out.", "Empty Cart", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Prepare Python JSON payload
             var invoicePayload = new
             {
                 invoice_id = new Random().Next(1000, 9999),
                 customer_name = "Retail Client",
-                grand_total = selectedProduct.UnitPrice,
-                items = new[]
+                grand_total = _cart.Sum(i => i.Subtotal),
+                items = _cart.Select(i => new
                 {
-                    new
-                    {
-                        name = selectedProduct.ProductName,
-                        qty = 1,
-                        price = selectedProduct.UnitPrice,
-                        total = selectedProduct.UnitPrice
-                    }
-                }
+                    name = i.ProductName,
+                    qty = i.Quantity,
+                    price = i.UnitPrice,
+                    total = i.Subtotal
+                }).ToArray()
             };
 
             string jsonString = JsonSerializer.Serialize(invoicePayload);
@@ -209,13 +338,58 @@ namespace BusinessManagement.App
                     using (StreamReader reader = process.StandardOutput)
                     {
                         string result = reader.ReadToEnd();
-                        MessageBox.Show(result, "Invoice Generated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        // Deduct all cart items in a single transaction
+                        if (_repository.DeductStockBatch(_cart))
+                        {
+                            _cart.Clear();
+                            UpdateCartGrid();
+                            LoadInventory(txtSearch.Text.Trim());
+                            MessageBox.Show($"{result}\nBatch stock update applied successfully!", "Checkout Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Failed to complete transaction due to insufficient stock.", "Transaction Aborted", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Execution failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnAddProduct_Click(object sender, EventArgs e)
+        {
+            using (var addForm = new AddProductForm())
+            {
+                if (addForm.ShowDialog() == DialogResult.OK && addForm.NewProduct != null)
+                {
+                    _repository.AddProduct(addForm.NewProduct);
+                    LoadInventory();
+                    MessageBox.Show("New product saved successfully!", "Product Added", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
+
+        private void DgvInventory_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
+        {
+            foreach (DataGridViewRow row in dgvInventory.Rows)
+            {
+                if (row.DataBoundItem is Product product)
+                {
+                    if (product.StockQuantity <= product.ReorderLevel)
+                    {
+                        row.DefaultCellStyle.BackColor = Color.MistyRose;
+                        row.DefaultCellStyle.ForeColor = Color.DarkRed;
+                    }
+                    else
+                    {
+                        row.DefaultCellStyle.BackColor = Color.White;
+                        row.DefaultCellStyle.ForeColor = Color.Black;
+                    }
+                }
             }
         }
     }

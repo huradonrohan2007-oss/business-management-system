@@ -1,244 +1,195 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 
-namespace BusinessManagement.Core
+namespace BusinessManagement.App
 {
     public class InventoryRepository
     {
-        private readonly string _connectionString = "Data Source=inventory.db";
+        private readonly string connectionString = "Data Source=pos_inventory.db;";
 
         public InventoryRepository()
         {
-            InitializeDatabase();
         }
 
-        private void InitializeDatabase()
+        /// <summary>
+        /// Creates database tables if they do not already exist.
+        /// </summary>
+        public void InitializeDatabase()
         {
-            using (var connection = new SqliteConnection(_connectionString))
+            using (var conn = new SqliteConnection(connectionString))
             {
-                connection.Open();
+                conn.Open();
 
-                string createTableQuery = @"
+                string sql = @"
                     CREATE TABLE IF NOT EXISTS Products (
                         ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        SKU TEXT UNIQUE NOT NULL,
                         ProductName TEXT NOT NULL,
-                        Category TEXT,
-                        UnitPrice DECIMAL(10,2) NOT NULL,
-                        StockQuantity INTEGER NOT NULL DEFAULT 0,
+                        SKU TEXT NOT NULL UNIQUE,
+                        Category TEXT NOT NULL,
+                        UnitPrice DECIMAL(10, 2) NOT NULL,
+                        StockQuantity INTEGER NOT NULL,
                         ReorderLevel INTEGER NOT NULL DEFAULT 5
+                    );
+
+                    CREATE TABLE IF NOT EXISTS Invoices (
+                        InvoiceID INTEGER PRIMARY KEY AUTOINCREMENT,
+                        CustomerName TEXT NOT NULL,
+                        SaleDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        TotalAmount DECIMAL(10, 2) NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS InvoiceItems (
+                        InvoiceItemID INTEGER PRIMARY KEY AUTOINCREMENT,
+                        InvoiceID INTEGER NOT NULL,
+                        ProductID INTEGER NOT NULL,
+                        Quantity INTEGER NOT NULL,
+                        UnitPrice DECIMAL(10, 2) NOT NULL,
+                        FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID),
+                        FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
                     );";
 
-                using (var command = new SqliteCommand(createTableQuery, connection))
+                using (var cmd = new SqliteCommand(sql, conn))
                 {
-                    command.ExecuteNonQuery();
+                    cmd.ExecuteNonQuery();
                 }
 
-                string countQuery = "SELECT COUNT(*) FROM Products;";
-                using (var countCmd = new SqliteCommand(countQuery, connection))
-                {
-                    long count = (long)countCmd.ExecuteScalar();
-                    if (count == 0)
-                    {
-                        string seedQuery = @"
-                            INSERT INTO Products (SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel)
-                            VALUES 
-                            ('LOGI-MX01', 'Wireless Mouse', 'Peripherals', 25.00, 15, 5),
-                            ('KEY-MECH02', 'Mechanical Keyboard', 'Peripherals', 100.00, 8, 3),
-                            ('MON-4K27', '27-inch 4K Monitor', 'Displays', 350.00, 2, 5);";
+                // Seed sample products if table is empty
+                SeedInitialData(conn);
+            }
+        }
 
-                        using (var seedCmd = new SqliteCommand(seedQuery, connection))
-                        {
-                            seedCmd.ExecuteNonQuery();
-                        }
+        private void SeedInitialData(SqliteConnection conn)
+        {
+            string checkSql = "SELECT COUNT(*) FROM Products;";
+            using (var checkCmd = new SqliteCommand(checkSql, conn))
+            {
+                long count = (long)checkCmd.ExecuteScalar();
+                if (count == 0)
+                {
+                    string seedSql = @"
+                        INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel) VALUES
+                        ('Wireless Mouse', 'SKU-001', 'Peripherals', 25.00, 50, 10),
+                        ('Mechanical Keyboard', 'SKU-002', 'Peripherals', 85.50, 30, 5),
+                        ('27-inch Monitor', 'SKU-003', 'Displays', 220.00, 15, 3),
+                        ('USB-C Hub', 'SKU-004', 'Accessories', 45.00, 8, 10);";
+
+                    using (var seedCmd = new SqliteCommand(seedSql, conn))
+                    {
+                        seedCmd.ExecuteNonQuery();
                     }
                 }
             }
         }
 
-        public List<Product> GetProducts()
+        /// <summary>
+        /// Retrieves all products from the database into a DataTable.
+        /// </summary>
+        public DataTable GetAllProducts()
         {
-            var products = new List<Product>();
+            DataTable dt = new DataTable();
 
-            using (var connection = new SqliteConnection(_connectionString))
+            using (var conn = new SqliteConnection(connectionString))
             {
-                connection.Open();
-                string selectQuery = "SELECT ProductID, SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel FROM Products;";
+                conn.Open();
+                string sql = "SELECT ProductID, ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel FROM Products;";
 
-                using (var command = new SqliteCommand(selectQuery, connection))
-                using (var reader = command.ExecuteReader())
+                using (var cmd = new SqliteCommand(sql, conn))
+                using (var reader = cmd.ExecuteReader())
                 {
-                    while (reader.Read())
+                    dt.Load(reader);
+                }
+            }
+
+            return dt;
+        }
+
+        /// <summary>
+        /// Inserts a new product record into the Products table.
+        /// </summary>
+        public void AddProduct(string productName, string sku, string category, decimal unitPrice, int stockQuantity, int reorderLevel)
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string sql = @"
+                    INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel)
+                    VALUES (@ProductName, @SKU, @Category, @UnitPrice, @StockQuantity, @ReorderLevel);";
+
+                using (var cmd = new SqliteCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ProductName", productName);
+                    cmd.Parameters.AddWithValue("@SKU", sku);
+                    cmd.Parameters.AddWithValue("@Category", category);
+                    cmd.Parameters.AddWithValue("@UnitPrice", unitPrice);
+                    cmd.Parameters.AddWithValue("@StockQuantity", stockQuantity);
+                    cmd.Parameters.AddWithValue("@ReorderLevel", reorderLevel);
+
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Saves an invoice transaction and updates stock quantities atomically.
+        /// </summary>
+        public long SaveInvoice(string customerName, List<CartItem> cart)
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+
+                using (var transaction = conn.BeginTransaction())
+                {
+                    // 1. Insert Invoice Header
+                    string insertInvoiceSql = @"
+                        INSERT INTO Invoices (CustomerName, TotalAmount)
+                        VALUES (@CustomerName, @TotalAmount);
+                        SELECT last_insert_rowid();";
+
+                    decimal totalAmount = cart.Sum(item => item.Subtotal);
+
+                    long invoiceId;
+                    using (var cmd = new SqliteCommand(insertInvoiceSql, conn, transaction))
                     {
-                        products.Add(new Product
-                        {
-                            ProductID = reader.GetInt32(0),
-                            SKU = reader.GetString(1),
-                            ProductName = reader.GetString(2),
-                            Category = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                            UnitPrice = reader.GetDecimal(4),
-                            StockQuantity = reader.GetInt32(5),
-                            ReorderLevel = reader.GetInt32(6)
-                        });
+                        cmd.Parameters.AddWithValue("@CustomerName", customerName);
+                        cmd.Parameters.AddWithValue("@TotalAmount", totalAmount);
+                        invoiceId = (long)cmd.ExecuteScalar();
                     }
-                }
-            }
 
-            return products;
-        }
-
-        public List<Product> SearchProducts(string query)
-        {
-            var products = new List<Product>();
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-                string searchSql = @"
-                    SELECT ProductID, SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel 
-                    FROM Products 
-                    WHERE SKU LIKE @query 
-                       OR ProductName LIKE @query 
-                       OR Category LIKE @query;";
-
-                using (var command = new SqliteCommand(searchSql, connection))
-                {
-                    command.Parameters.AddWithValue("@query", $"%{query}%");
-                    using (var reader = command.ExecuteReader())
+                    // 2. Insert Line Items & Deduct Inventory Stock
+                    foreach (var item in cart)
                     {
-                        while (reader.Read())
+                        string insertItemSql = @"
+                            INSERT INTO InvoiceItems (InvoiceID, ProductID, Quantity, UnitPrice)
+                            VALUES (@InvoiceID, @ProductID, @Quantity, @UnitPrice);";
+
+                        using (var cmd = new SqliteCommand(insertItemSql, conn, transaction))
                         {
-                            products.Add(new Product
-                            {
-                                ProductID = reader.GetInt32(0),
-                                SKU = reader.GetString(1),
-                                ProductName = reader.GetString(2),
-                                Category = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                                UnitPrice = reader.GetDecimal(4),
-                                StockQuantity = reader.GetInt32(5),
-                                ReorderLevel = reader.GetInt32(6)
-                            });
-                        }
-                    }
-                }
-            }
-
-            return products;
-        }
-
-        public void AddProduct(Product product)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-                string insertSql = @"
-                    INSERT INTO Products (SKU, ProductName, Category, UnitPrice, StockQuantity, ReorderLevel)
-                    VALUES (@SKU, @ProductName, @Category, @UnitPrice, @StockQuantity, @ReorderLevel);";
-
-                using (var command = new SqliteCommand(insertSql, connection))
-                {
-                    command.Parameters.AddWithValue("@SKU", product.SKU);
-                    command.Parameters.AddWithValue("@ProductName", product.ProductName);
-                    command.Parameters.AddWithValue("@Category", product.Category ?? string.Empty);
-                    command.Parameters.AddWithValue("@UnitPrice", product.UnitPrice);
-                    command.Parameters.AddWithValue("@StockQuantity", product.StockQuantity);
-                    command.Parameters.AddWithValue("@ReorderLevel", product.ReorderLevel);
-
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
-        public void UpdateStock(int productId, int newQuantity)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-                string updateSql = "UPDATE Products SET StockQuantity = @StockQuantity WHERE ProductID = @ProductID;";
-
-                using (var command = new SqliteCommand(updateSql, connection))
-                {
-                    command.Parameters.AddWithValue("@StockQuantity", newQuantity);
-                    command.Parameters.AddWithValue("@ProductID", productId);
-
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
-        public bool DeductStock(int productId, int quantityToDeduct)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                string checkSql = "SELECT StockQuantity FROM Products WHERE ProductID = @ProductID;";
-                using (var checkCmd = new SqliteCommand(checkSql, connection))
-                {
-                    checkCmd.Parameters.AddWithValue("@ProductID", productId);
-                    var result = checkCmd.ExecuteScalar();
-
-                    if (result == null) return false;
-
-                    int currentStock = Convert.ToInt32(result);
-                    if (currentStock < quantityToDeduct)
-                    {
-                        return false;
-                    }
-                }
-
-                string updateSql = "UPDATE Products SET StockQuantity = StockQuantity - @Qty WHERE ProductID = @ProductID;";
-                using (var command = new SqliteCommand(updateSql, connection))
-                {
-                    command.Parameters.AddWithValue("@Qty", quantityToDeduct);
-                    command.Parameters.AddWithValue("@ProductID", productId);
-                    command.ExecuteNonQuery();
-                }
-            }
-            return true;
-        }
-
-        public bool DeductStockBatch(List<CartItem> cartItems)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        foreach (var item in cartItems)
-                        {
-                            string checkSql = "SELECT StockQuantity FROM Products WHERE ProductID = @ProductID;";
-                            using (var checkCmd = new SqliteCommand(checkSql, connection, transaction))
-                            {
-                                checkCmd.Parameters.AddWithValue("@ProductID", item.ProductID);
-                                var result = checkCmd.ExecuteScalar();
-                                if (result == null || Convert.ToInt32(result) < item.Quantity)
-                                {
-                                    transaction.Rollback();
-                                    return false; // Insufficient stock for this item
-                                }
-                            }
-
-                            string updateSql = "UPDATE Products SET StockQuantity = StockQuantity - @Qty WHERE ProductID = @ProductID;";
-                            using (var updateCmd = new SqliteCommand(updateSql, connection, transaction))
-                            {
-                                updateCmd.Parameters.AddWithValue("@Qty", item.Quantity);
-                                updateCmd.Parameters.AddWithValue("@ProductID", item.ProductID);
-                                updateCmd.ExecuteNonQuery();
-                            }
+                            cmd.Parameters.AddWithValue("@InvoiceID", invoiceId);
+                            cmd.Parameters.AddWithValue("@ProductID", item.ProductID);
+                            cmd.Parameters.AddWithValue("@Quantity", item.Quantity);
+                            cmd.Parameters.AddWithValue("@UnitPrice", item.UnitPrice);
+                            cmd.ExecuteNonQuery();
                         }
 
-                        transaction.Commit();
-                        return true;
+                        string updateStockSql = @"
+                            UPDATE Products
+                            SET StockQuantity = StockQuantity - @Quantity
+                            WHERE ProductID = @ProductID;";
+
+                        using (var cmd = new SqliteCommand(updateStockSql, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@Quantity", item.Quantity);
+                            cmd.Parameters.AddWithValue("@ProductID", item.ProductID);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
-                    catch
-                    {
-                        transaction.Rollback();
-                        return false;
-                    }
+
+                    transaction.Commit();
+                    return invoiceId;
                 }
             }
         }

@@ -211,10 +211,24 @@ namespace BusinessManagement.App
 
         private void LoadZReportView()
         {
+            // --- Export Button ---
+            Button btnExport = new Button
+            {
+                Location = new Point(30, 20),
+                Size = new Size(160, 35),
+                Text = "📥 Export to CSV",
+                BackColor = Color.FromArgb(79, 70, 229),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Semibold", 9, FontStyle.Bold)
+            };
+            btnExport.FlatAppearance.BorderSize = 0;
+            pnlContentArea.Controls.Add(btnExport);
             DataGridView dgvZReport = new DataGridView
             {
-                Location = new Point(30, 80),
-                Size = new Size(1100, 450),
+                Location = new Point(30, 70), // Moved down to fit button
+                Size = new Size(1100, 480),
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
@@ -230,9 +244,12 @@ namespace BusinessManagement.App
 
             try
             {
-                dgvZReport.DataSource = repository.GetDailySalesSummary(DateTime.Today);
+                dgvZReport.DataSource = repository.GetItemizedSalesSummary(DateTime.Today);
             }
             catch { }
+
+            // Wire up export click event
+            btnExport.Click += (s, e) => ExportDataGridViewToCSV(dgvZReport, $"Z-Report_{DateTime.Now:yyyyMMdd}.csv");
 
             pnlContentArea.Controls.Add(dgvZReport);
         }
@@ -566,6 +583,48 @@ namespace BusinessManagement.App
             card.Controls.Add(lblTitle);
             card.Controls.Add(lblValue);
             parent.Controls.Add(card);
+        }
+        private void ExportDataGridViewToCSV(DataGridView dgv, string defaultFilename)
+        {
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "CSV file (*.csv)|*.csv";
+                sfd.FileName = defaultFilename;
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        using (System.IO.StreamWriter sw = new System.IO.StreamWriter(sfd.FileName, false, System.Text.Encoding.UTF8))
+                        {
+                            // Write Column Headers
+                            for (int i = 0; i < dgv.Columns.Count; i++)
+                            {
+                                sw.Write(dgv.Columns[i].HeaderText + (i == dgv.Columns.Count - 1 ? "" : ","));
+                            }
+                            sw.WriteLine();
+
+                            // Write Row Data
+                            foreach (DataGridViewRow row in dgv.Rows)
+                            {
+                                if (row.IsNewRow) continue;
+                                for (int i = 0; i < dgv.Columns.Count; i++)
+                                {
+                                    string value = row.Cells[i].Value?.ToString() ?? "";
+                                    if (value.Contains(",")) value = $"\"{value}\"";
+                                    sw.Write(value + (i == dgv.Columns.Count - 1 ? "" : ","));
+                                }
+                                sw.WriteLine();
+                            }
+                        }
+                        MessageBox.Show("Report exported successfully as CSV!", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Export failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
         }
     }
 }

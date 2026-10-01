@@ -14,6 +14,33 @@ namespace BusinessManagement.App
             using (var conn = new SqliteConnection(connectionString))
             {
                 conn.Open();
+                // Add this inside your InitializeDatabase() table creation block:
+                string tableSuppliers = @"
+    CREATE TABLE IF NOT EXISTS Suppliers (
+    SupplierID INTEGER PRIMARY KEY AUTOINCREMENT,
+    SupplierName TEXT NOT NULL,
+    ContactPerson TEXT NOT NULL,
+    Phone TEXT NOT NULL,
+    Email TEXT NOT NULL
+);";
+                using (var cmd = new SqliteCommand(tableSuppliers, conn)) { cmd.ExecuteNonQuery(); }
+
+                // Seed default suppliers if empty
+                string checkSuppliers = "SELECT COUNT(*) FROM Suppliers;";
+                using (var cmd = new SqliteCommand(checkSuppliers, conn))
+                {
+                    long count = (long)cmd.ExecuteScalar();
+                    if (count == 0)
+                    {
+                        string seedSuppliers = @"
+            INSERT INTO Suppliers (SupplierName, ContactPerson, Phone, Email) VALUES
+            ('Global Peripherals Ltd.', 'Marc Dupont', '+230 5712 3456', 'orders@globalperipherals.mu'),
+            ('TechCorp Logistics', 'Aisha Beeharry', '+230 5988 7890', 'supply@techcorp.mu'),
+            ('Island Office Solutions', 'Kevin Naidu', '+230 5433 1122', 'sales@islandoffice.mu');
+        ";
+                        using (var seedCmd = new SqliteCommand(seedSuppliers, conn)) { seedCmd.ExecuteNonQuery(); }
+                    }
+                }
 
                 string tableProducts = @"
                     CREATE TABLE IF NOT EXISTS Products (
@@ -286,6 +313,75 @@ namespace BusinessManagement.App
                 }
             }
             return dt;
+        }
+        public DataTable GetAllSuppliers()
+        {
+            DataTable dt = new DataTable();
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = "SELECT SupplierID, SupplierName, ContactPerson, Phone, Email FROM Suppliers;";
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        dt.Load(reader);
+                    }
+                }
+            }
+            return dt;
+        }
+
+        public void PlaceRestockOrder(long supplierId, string supplierName, int productId, int quantity, decimal totalCost)
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                using (var transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // 1. Log as an invoice/purchase record
+                        string insertInvoice = "INSERT INTO Invoices (CustomerName, SaleDate, TotalAmount) VALUES (@CustomerName, @SaleDate, @TotalAmount); SELECT last_insert_rowid();";
+                        long invoiceId;
+                        using (var cmd = new SqliteCommand(insertInvoice, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@CustomerName", $"Restock: {supplierName}");
+                            cmd.Parameters.AddWithValue("@SaleDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                            cmd.Parameters.AddWithValue("@TotalAmount", totalCost);
+                            invoiceId = (long)cmd.ExecuteScalar();
+                        }
+
+                        // 2. Increment stock quantity in products
+                        string updateStock = "UPDATE Products SET StockQuantity = StockQuantity + @Quantity WHERE ProductID = @ProductID;";
+                        using (var cmd = new SqliteCommand(updateStock, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@Quantity", quantity);
+                            cmd.Parameters.AddWithValue("@ProductID", productId);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+        public int GetLowStockCount()
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = "SELECT COUNT(*) FROM Products WHERE StockQuantity <= ReorderLevel;";
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    return Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
         }
     }
 }

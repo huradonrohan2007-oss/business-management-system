@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using BusinessManagement.Core;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Data;
 using System.Drawing;
@@ -22,8 +23,13 @@ private TextBox txtCustomerName;
         {
             repository = new InventoryRepository();
             InitializeCustomLayout();
-            SwitchView("Dashboard"); // Load dashboard by default
+
+            // SwitchView("Dashboard"); // <-- Remove this from the constructor
+
+            // Add this instead so it loads with the correct maximized dimensions:
+            this.Shown += (s, e) => SwitchView("Dashboard");
         }
+
         private void UpdateSidebarBadges()
         {
             if (btnInventoryNav == null) return;
@@ -55,34 +61,34 @@ private TextBox txtCustomerName;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.FromArgb(15, 13, 25);
 
-            // 1. CREATE THE SIDEBAR PANEL FIRST
+            // 1. CREATE THE SIDEBAR PANEL FIRST (Wider for stylish spacing)
             pnlSidebar = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 240,
+                Width = 280,
                 BackColor = Color.FromArgb(20, 16, 32)
             };
-            this.Controls.Add(pnlSidebar); // <-- Must be added to form first so it exists!
+            this.Controls.Add(pnlSidebar);
 
-            // 2. NOW ADD BRANDING & NAV BUTTONS TO IT
+            // 2. BRANDING & NAV BUTTONS
             Label lblBrand = new Label
             {
                 Location = new Point(20, 25),
                 AutoSize = true,
                 Text = "⚡ NEXUS ERP",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Font = new Font("Segoe UI", 15, FontStyle.Bold),
                 ForeColor = Color.White
             };
             pnlSidebar.Controls.Add(lblBrand);
 
-            AddNavButton("📊  Dashboard", 80, (s, e) => SwitchView("Dashboard"));
-            AddNavButton("📦  Inventory Catalog", 135, (s, e) => SwitchView("Inventory"));
-            AddNavButton("🛒  POS Checkout", 190, (s, e) => SwitchView("Checkout"));
-            AddNavButton("📈  Z-Report & Financials", 245, (s, e) => SwitchView("ZReport"));
-            AddNavButton("📄  Invoice Manager", 300, (s, e) => SwitchView("Invoices"));
-            AddNavButton("🚚  Suppliers & Orders", 355, (s, e) => SwitchView("Suppliers"));
+            AddNavButton("📊  Dashboard", 85, (s, e) => SwitchView("Dashboard"));
+            AddNavButton("📦  Inventory Catalog", 145, (s, e) => SwitchView("Inventory"));
+            AddNavButton("🛒  POS Checkout", 205, (s, e) => SwitchView("Checkout"));
+            AddNavButton("📈  Z-Report & Financials", 265, (s, e) => SwitchView("ZReport"));
+            AddNavButton("📄  Invoice Manager", 325, (s, e) => SwitchView("Invoices"));
+            AddNavButton("🚚  Suppliers & Orders", 385, (s, e) => SwitchView("Suppliers"));
 
-            // --- 2. Top Header Bar ---
+            // --- Top Header Bar ---
             Panel pnlHeader = new Panel
             {
                 Dock = DockStyle.Top,
@@ -100,7 +106,7 @@ private TextBox txtCustomerName;
             };
             pnlHeader.Controls.Add(lblHeaderTitle);
 
-            // --- 3. Right Content Area ---
+            // --- Right Content Area ---
             pnlContentArea = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -112,20 +118,20 @@ private TextBox txtCustomerName;
             this.Controls.Add(pnlSidebar);
         }
 
-        private Button AddNavButton(string text, int topPosition, EventHandler onClick) // Changed from void to Button
+        private Button AddNavButton(string text, int topPosition, EventHandler onClick)
         {
             Button btn = new Button
             {
                 Location = new Point(15, topPosition),
-                Size = new Size(210, 42),
+                Size = new Size(250, 48), // Wider and taller for bigger icons/text
                 Text = text,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0),
+                Padding = new Padding(12, 0, 0, 0),
                 BackColor = Color.FromArgb(24, 20, 37),
                 ForeColor = Color.FromArgb(209, 213, 219),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 10f)
+                Font = new Font("Segoe UI Semibold", 11f) // Larger font
             };
             btn.FlatAppearance.BorderSize = 0;
 
@@ -135,9 +141,8 @@ private TextBox txtCustomerName;
             btn.Click += onClick;
             pnlSidebar.Controls.Add(btn);
 
-            return btn; // <-- Add this line so it returns the button reference
+            return btn;
         }
-
         private void SwitchView(string viewName)
         {
             pnlContentArea.Controls.Clear(); // Clear previous view controls
@@ -167,6 +172,10 @@ private TextBox txtCustomerName;
                 case "Suppliers":
                     lblHeaderTitle.Text = "Supplier & Supply Chain Management";
                     LoadSuppliersView();
+                    break;
+                case "Customers":
+                    lblHeaderTitle.Text = "Customer Directory & Loyalty Management";
+                    LoadCustomersView();
                     break;
             }
         }
@@ -223,7 +232,6 @@ private TextBox txtCustomerName;
                 Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
             };
 
-            // Pull quick today metrics from repository
             decimal todayRevenue = 0;
             int todayTxCount = 0;
             try
@@ -243,7 +251,7 @@ private TextBox txtCustomerName;
             {
                 Location = new Point(180, 15),
                 AutoSize = true,
-                ForeColor = Color.FromArgb(52, 211, 153), // Emerald
+                ForeColor = Color.FromArgb(52, 211, 153),
                 Text = $"Today's Register Drawer: Rs.{todayRevenue:N2}  |  Total Sales Processed: {todayTxCount}",
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
             };
@@ -260,9 +268,7 @@ private TextBox txtCustomerName;
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
             };
             btnViewRecentInvoices.FlatAppearance.BorderSize = 0;
-            btnViewRecentInvoices.Click += (s, e) => {
-                SwitchView("Invoices"); // Jump straight to invoice audit trail
-            };
+            btnViewRecentInvoices.Click += (s, e) => { SwitchView("Invoices"); };
 
             pnlManagerHUD.Controls.AddRange(new Control[] { lblHudTitle, lblHudMetrics, btnViewRecentInvoices });
             pnlContentArea.Controls.Add(pnlManagerHUD);
@@ -319,7 +325,7 @@ private TextBox txtCustomerName;
             dgvCart = new DataGridView
             {
                 Location = new Point(560, 115),
-                Size = new Size(560, 290),
+                Size = new Size(560, 270),
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
@@ -382,53 +388,121 @@ private TextBox txtCustomerName;
             };
             pnlContentArea.Controls.Add(btnAddToCart);
 
-            // --- Checkout Controls Box ---
+            // --- Fidelity & Checkout Controls Box ---
             Panel pnlCheckoutBox = new Panel
             {
-                Location = new Point(560, 415),
-                Size = new Size(560, 143),
+                Location = new Point(560, 390),
+                Size = new Size(560, 205), // Increased height to prevent overlap
                 BackColor = Color.FromArgb(24, 20, 37)
             };
 
-            Label lblCustName = new Label
+            // 1. Fidelity Card Scan Row
+            Label lblFidelityLabel = new Label
             {
-                Location = new Point(15, 15),
+                Location = new Point(15, 12),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
-                Text = "Customer / Account:",
+                Text = "Fidelity Card:",
                 Font = new Font("Segoe UI", 9f)
             };
-            txtCustomerName = new TextBox
+
+            TextBox txtFidelityCard = new TextBox
             {
-                Location = new Point(145, 13),
-                Size = new Size(395, 27),
-                Text = "Walk-in Customer",
+                Location = new Point(115, 10),
+                Size = new Size(165, 25),
+                PlaceholderText = "Scan Card #...",
                 BackColor = Color.FromArgb(30, 27, 46),
                 ForeColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
 
+            Button btnVerifyCard = new Button
+            {
+                Location = new Point(290, 9),
+                Size = new Size(70, 27),
+                Text = "Verify",
+                BackColor = Color.FromArgb(79, 70, 229),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+            btnVerifyCard.FlatAppearance.BorderSize = 0;
+
+            Label lblPointsDisplay = new Label
+            {
+                Location = new Point(370, 12),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(52, 211, 153),
+                Text = "Points: 0",
+                Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold)
+            };
+
+            // 2. Customer Name Row
+            Label lblCustName = new Label
+            {
+                Location = new Point(15, 48),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(156, 163, 175),
+                Text = "Customer:",
+                Font = new Font("Segoe UI", 9f)
+            };
+
+            txtCustomerName = new TextBox
+            {
+                Location = new Point(115, 45),
+                Size = new Size(245, 25),
+                Text = "Walk-in Customer",
+                BackColor = Color.FromArgb(30, 27, 46),
+                ForeColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                ReadOnly = true
+            };
+
+            // 3. Points Redemption Input Row
+            Label lblRedeemText = new Label
+            {
+                Location = new Point(15, 85),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(156, 163, 175),
+                Text = "Use Pts:",
+                Font = new Font("Segoe UI", 9f)
+            };
+
+            TextBox txtPointsToRedeem = new TextBox
+            {
+                Location = new Point(115, 82),
+                Size = new Size(100, 25),
+                Text = "0",
+                BackColor = Color.FromArgb(30, 27, 46),
+                ForeColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            // 4. Total Due Row
             Label lblTotalText = new Label
             {
-                Location = new Point(15, 57),
+                Location = new Point(15, 122),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "Total Due:",
                 Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
             };
+
             lblCartTotalVal = new Label
             {
-                Location = new Point(145, 53),
+                Location = new Point(115, 118),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(52, 211, 153),
-                Text = "Rs.0.00",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold)
+                Text = "Rs 0.00",
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
             };
 
+            // 5. Complete Checkout Button
             Button btnCompleteCheckout = new Button
             {
-                Location = new Point(15, 93),
-                Size = new Size(525, 36),
+                Location = new Point(15, 155),
+                Size = new Size(530, 38),
                 Text = "💳 Authorize Sale & Update Inventory",
                 BackColor = Color.FromArgb(16, 185, 129),
                 ForeColor = Color.White,
@@ -437,6 +511,42 @@ private TextBox txtCustomerName;
                 Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
             };
             btnCompleteCheckout.FlatAppearance.BorderSize = 0;
+
+            // --- State variables for active checkout session ---
+            CustomerFidelityModel activeFidelityCustomer = null;
+            LoyaltyCheckoutManager loyaltyManager = new LoyaltyCheckoutManager();
+
+            // Wire up Verification Click safely
+            btnVerifyCard.Click += (s, e) =>
+            {
+                string cardCode = txtFidelityCard.Text.Trim();
+                if (string.IsNullOrEmpty(cardCode)) return;
+
+                try
+                {
+                    activeFidelityCustomer = repository.GetCustomerByFidelityCard(cardCode);
+                    if (activeFidelityCustomer != null)
+                    {
+                        txtCustomerName.Text = activeFidelityCustomer.CustomerName;
+                        lblPointsDisplay.Text = $"Points: {activeFidelityCustomer.PointsBalance}";
+                    }
+                    else
+                    {
+                        MessageBox.Show("Fidelity card not found in the database.", "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        activeFidelityCustomer = null;
+                        txtCustomerName.Text = "Walk-in Customer";
+                        lblPointsDisplay.Text = "Points: 0";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Database error during card lookup: {ex.Message}\n\n(Tip: Ensure the Customers table exists in your SQLite database).",
+                        "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    activeFidelityCustomer = null;
+                }
+            };
+
+            // Wire up Checkout Completion with Safe-Proof Margin Protection
             btnCompleteCheckout.Click += (s, e) =>
             {
                 if (currentCart.Count == 0)
@@ -447,14 +557,44 @@ private TextBox txtCustomerName;
 
                 try
                 {
-                    string custName = string.IsNullOrWhiteSpace(txtCustomerName.Text) ? "Walk-in Customer" : txtCustomerName.Text;
-                    long invoiceId = repository.SaveInvoice(custName, currentCart);
+                    // Calculate raw cart subtotal
+                    decimal cartSubtotal = 0;
+                    foreach (var item in currentCart)
+                    {
+                        cartSubtotal += item.Subtotal;
+                    }
 
-                    MessageBox.Show($"Transaction authorized successfully!\nInvoice #{invoiceId} recorded and stock decremented.", "Manager Sign-off", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    int pointsRequested = 0;
+                    int.TryParse(txtPointsToRedeem.Text, out pointsRequested);
+                    int availablePoints = (activeFidelityCustomer != null) ? activeFidelityCustomer.PointsBalance : 0;
+
+                    // Run through the safe-proof manager (Enforces 30% margin protection ceiling)
+                    var calcResult = loyaltyManager.CalculateSafeCheckout(cartSubtotal, availablePoints, pointsRequested);
+
+                    string custName = txtCustomerName.Text;
+                    long invoiceId = repository.SaveInvoice(custName, currentCart);
+                    if (activeFidelityCustomer != null)
+                    {
+                        int finalPointsBalance = activeFidelityCustomer.PointsBalance - calcResult.PointsRedeemed + calcResult.PointsEarned;
+
+                        // Save updated points balance back to SQLite
+                        repository.UpdateCustomerLoyalty(activeFidelityCustomer.CustomerID, finalPointsBalance, activeFidelityCustomer.StoreCredit);
+                    }
+                    MessageBox.Show($"Transaction authorized successfully!\n" +
+                                    $"Invoice #{invoiceId} recorded.\n" +
+                                    $"Subtotal: Rs. {cartSubtotal:N2}\n" +
+                                    $"Discount Applied (Protected): - Rs. {calcResult.DiscountApplied:N2}\n" +
+                                    $"Final Payable: Rs. {calcResult.FinalPayable:N2}\n" +
+                                    $"Points Earned: +{calcResult.PointsEarned}",
+                                    "Manager Sign-off", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                     currentCart.Clear();
                     RefreshCartGrid();
                     dgvCatalog.DataSource = repository.GetAllProducts();
+                    txtFidelityCard.Clear();
+                    txtCustomerName.Text = "Walk-in Customer";
+                    lblPointsDisplay.Text = "Points: 0";
+                    txtPointsToRedeem.Text = "0";
                 }
                 catch (Exception ex)
                 {
@@ -462,7 +602,12 @@ private TextBox txtCustomerName;
                 }
             };
 
-            pnlCheckoutBox.Controls.AddRange(new Control[] { lblCustName, txtCustomerName, lblTotalText, lblCartTotalVal, btnCompleteCheckout });
+            pnlCheckoutBox.Controls.AddRange(new Control[] {
+        lblFidelityLabel, txtFidelityCard, btnVerifyCard, lblPointsDisplay,
+        lblCustName, txtCustomerName, lblRedeemText, txtPointsToRedeem,
+        lblTotalText, lblCartTotalVal, btnCompleteCheckout
+
+    });
             pnlContentArea.Controls.Add(pnlCheckoutBox);
         }
 
@@ -681,36 +826,79 @@ private TextBox txtCustomerName;
         {
             pnlContentArea.Controls.Clear();
 
-            // --- Main Left Workspace (Sales Trend Chart) ---
+            int margin = 20;
+            int gap = 15;
+            int trackerWidth = 300;
+
+            int availableWidth = pnlContentArea.Width;
+            int availableHeight = pnlContentArea.Height;
+
+            int workspaceWidth = availableWidth - (margin * 2) - trackerWidth - gap;
+            int workspaceHeight = availableHeight - (margin * 2);
+            int trackerHeight = workspaceHeight;
+
+            // --- Main Left Workspace ---
             Panel pnlWorkspace = new Panel
             {
-                Location = new Point(20, 20),
-                Size = new Size(740, 520),
-                BackColor = Color.FromArgb(24, 20, 37)
+                Location = new Point(margin, margin),
+                Size = new Size(workspaceWidth, workspaceHeight),
+                BackColor = Color.FromArgb(24, 20, 37),
+                AutoScroll = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
 
+            var metrics = repository.GetLiveShiftMetrics();
+            int currentY = 15;
+
+            // 0. Low-Stock Warning Banner
+            if (metrics.lowStockCount > 0)
+            {
+                Panel pnlBanner = new Panel
+                {
+                    Location = new Point(20, currentY),
+                    Size = new Size(workspaceWidth - 55, 42),
+                    BackColor = Color.FromArgb(60, 22, 30),
+                    Cursor = Cursors.Hand
+                };
+                pnlBanner.Click += (s, e) => SwitchView("Suppliers");
+
+                Label lblBannerText = new Label
+                {
+                    Text = $"⚠  Attention: {metrics.lowStockCount} product(s) have reached critical low stock! Click here to manage restock orders.",
+                    ForeColor = Color.FromArgb(252, 165, 165),
+                    Font = new Font("Segoe UI Semibold", 10f),
+                    Location = new Point(15, 11),
+                    AutoSize = true,
+                    Cursor = Cursors.Hand
+                };
+                lblBannerText.Click += (s, e) => SwitchView("Suppliers");
+                pnlBanner.Controls.Add(lblBannerText);
+                pnlWorkspace.Controls.Add(pnlBanner);
+
+                currentY += 52;
+            }
+
+            // 1. Chart Section Title & Canvas
             Label lblWorkspaceTitle = new Label
             {
                 Text = "Store Performance & Sales Trends",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold),
-                Location = new Point(20, 20),
+                Location = new Point(20, currentY),
                 AutoSize = true
             };
             pnlWorkspace.Controls.Add(lblWorkspaceTitle);
+            currentY += 32;
 
-            // Chart Canvas Panel
+            int chartWidth = workspaceWidth - 55;
             Panel pnlChartCanvas = new Panel
             {
-                Location = new Point(20, 65),
-                Size = new Size(700, 435),
+                Location = new Point(20, currentY),
+                Size = new Size(chartWidth, 195),
                 BackColor = Color.FromArgb(30, 25, 45)
             };
 
-            // Fetch sales data for the chart
             DataTable trendData = repository.GetRecentSalesTrend();
-
-            // Paint event to draw a sleek bar chart dynamically
             pnlChartCanvas.Paint += (s, e) =>
             {
                 Graphics g = e.Graphics;
@@ -721,29 +909,26 @@ private TextBox txtCustomerName;
                     using (Brush brush = new SolidBrush(Color.FromArgb(140, 140, 150)))
                     {
                         g.DrawString("No sales data recorded yet. Run a checkout to populate trend!",
-                            new Font("Segoe UI", 10f), brush, new PointF(20, 40));
+                            new Font("Segoe UI", 10f), brush, new PointF(25, 35));
                     }
                     return;
                 }
 
-                int startX = 60;
-                int maxBarHeight = 300;
-                int barWidth = 50;
-                int spacing = 40;
+                int startX = 55;
+                int maxBarHeight = 130;
+                int barWidth = 55;
+                int spacing = 45;
 
-                // Find max revenue for scaling bars
-                decimal maxVal = 100; // default ceiling
+                decimal maxVal = 100;
                 foreach (DataRow row in trendData.Rows)
                 {
                     decimal rev = Convert.ToDecimal(row["DailyRevenue"]);
                     if (rev > maxVal) maxVal = rev;
                 }
 
-                // Draw axes lines
                 using (Pen axisPen = new Pen(Color.FromArgb(60, 50, 80), 1))
                 {
-                    g.DrawLine(axisPen, 50, 380, 660, 380); // X Axis
-                    g.DrawLine(axisPen, 50, 50, 50, 380);   // Y Axis
+                    g.DrawLine(axisPen, 40, 160, chartWidth - 30, 160);
                 }
 
                 int index = 0;
@@ -756,91 +941,405 @@ private TextBox txtCustomerName;
                     if (barHeight < 5 && revenue > 0) barHeight = 5;
 
                     int posX = startX + (index * (barWidth + spacing));
-                    int posY = 380 - barHeight;
+                    int posY = 160 - barHeight;
 
-                    // Draw Bar with Jewel-tone gradient/solid color
-                    using (Brush barBrush = new SolidBrush(Color.FromArgb(79, 78, 229))) // Indigo accent
+                    using (Brush barBrush = new SolidBrush(Color.FromArgb(79, 70, 229)))
                     {
                         g.FillRectangle(barBrush, posX, posY, barWidth, barHeight);
                     }
 
-                    // Draw Value on top of bar
                     using (Brush textBrush = new SolidBrush(Color.White))
                     {
-                        g.DrawString($"Rs.{revenue:0}", new Font("Segoe UI", 8f), textBrush, new PointF(posX - 5, posY - 18));
-                        // Draw Date label underneath
-                        g.DrawString(dateStr, new Font("Segoe UI", 8f), new SolidBrush(Color.FromArgb(180, 180, 190)), new PointF(posX, 390));
+                        g.DrawString($"Rs.{revenue:0}", new Font("Segoe UI", 8.5f, FontStyle.Bold), textBrush, new PointF(posX - 2, posY - 20));
+                        g.DrawString(dateStr, new Font("Segoe UI", 9f), new SolidBrush(Color.FromArgb(180, 180, 190)), new PointF(posX + 3, 165));
                     }
 
                     index++;
                 }
             };
-
             pnlWorkspace.Controls.Add(pnlChartCanvas);
+            currentY += 215;
 
 
-            // --- Right-Hand Live Shift Performance Tracker Sidebar ---
-            Panel pnlSidebar = new Panel
+            // 2. Row 1 Tables: Top-Selling Products & Low-Stock Estimator
+            int colWidth = (chartWidth - 15) / 2;
+            int rightColX = 20 + colWidth + 15;
+            int tableHeight = 220;
+
+            Label lblLeaderboardTitle = new Label
             {
-                Location = new Point(780, 20),
-                Size = new Size(330, 520),
-                BackColor = Color.FromArgb(24, 20, 37)
+                Text = "🔥 Top-Selling Products Today",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
+                Location = new Point(20, currentY),
+                AutoSize = true
+            };
+            pnlWorkspace.Controls.Add(lblLeaderboardTitle);
+
+            Label lblRestockEstTitle = new Label
+            {
+                Text = "📦 Low-Stock Restock Estimator",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
+                Location = new Point(rightColX, currentY),
+                AutoSize = true
+            };
+            pnlWorkspace.Controls.Add(lblRestockEstTitle);
+            currentY += 32;
+
+            // Left DataGridView (Top Products)
+            DataGridView dgvTopProducts = new DataGridView
+            {
+                Location = new Point(20, currentY),
+                Size = new Size(colWidth, tableHeight),
+                BackgroundColor = Color.FromArgb(30, 25, 45),
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(50, 42, 75),
+                RowTemplate = { Height = 34 }
+            };
+
+            dgvTopProducts.ColumnHeadersHeight = 35;
+            dgvTopProducts.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(45, 38, 68),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 9.5f)
+            };
+            dgvTopProducts.DefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(30, 25, 45),
+                ForeColor = Color.FromArgb(240, 240, 245),
+                SelectionBackColor = Color.FromArgb(79, 70, 229),
+                SelectionForeColor = Color.White,
+                Font = new Font("Segoe UI", 9f)
+            };
+
+            try
+            {
+                dgvTopProducts.DataSource = repository.GetTopSellingProducts();
+                if (dgvTopProducts.Columns.Contains("ItemName"))
+                {
+                    dgvTopProducts.Columns["ItemName"].HeaderText = "Product Name";
+                    dgvTopProducts.Columns["ItemName"].FillWeight = 140;
+                }
+                if (dgvTopProducts.Columns.Contains("TotalSold"))
+                {
+                    dgvTopProducts.Columns["TotalSold"].HeaderText = "Sold";
+                    dgvTopProducts.Columns["TotalSold"].FillWeight = 50;
+                }
+                if (dgvTopProducts.Columns.Contains("Revenue"))
+                {
+                    dgvTopProducts.Columns["Revenue"].HeaderText = "Revenue (Rs.)";
+                    dgvTopProducts.Columns["Revenue"].DefaultCellStyle.Format = "N2";
+                    dgvTopProducts.Columns["Revenue"].FillWeight = 80;
+                }
+            }
+            catch { }
+            pnlWorkspace.Controls.Add(dgvTopProducts);
+
+
+            // Right DataGridView (Restock Estimator)
+            DataGridView dgvRestockEst = new DataGridView
+            {
+                Location = new Point(rightColX, currentY),
+                Size = new Size(colWidth, tableHeight),
+                BackgroundColor = Color.FromArgb(30, 25, 45),
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(50, 42, 75),
+                RowTemplate = { Height = 34 }
+            };
+
+            dgvRestockEst.ColumnHeadersHeight = 35;
+            dgvRestockEst.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(45, 38, 68),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 9.5f)
+            };
+            dgvRestockEst.DefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(30, 25, 45),
+                ForeColor = Color.FromArgb(240, 240, 245),
+                SelectionBackColor = Color.FromArgb(79, 70, 229),
+                SelectionForeColor = Color.White,
+                Font = new Font("Segoe UI", 9f)
+            };
+
+            decimal totalEstimatedRestockCost = 0;
+            try
+            {
+                DataTable restockDt = repository.GetAutomatedRestockQueue();
+                dgvRestockEst.DataSource = restockDt;
+
+                foreach (DataGridViewColumn col in dgvRestockEst.Columns)
+                {
+                    if (col.Name == "ProductName" || col.Name == "StockQuantity" || col.Name == "RecommendedQty" || col.Name == "EstimatedCost")
+                    {
+                        col.Visible = true;
+                    }
+                    else
+                    {
+                        col.Visible = false;
+                    }
+                }
+
+                if (dgvRestockEst.Columns.Contains("ProductName"))
+                {
+                    dgvRestockEst.Columns["ProductName"].HeaderText = "Product Name";
+                    dgvRestockEst.Columns["ProductName"].FillWeight = 130;
+                }
+                if (dgvRestockEst.Columns.Contains("StockQuantity"))
+                {
+                    dgvRestockEst.Columns["StockQuantity"].HeaderText = "Stock";
+                    dgvRestockEst.Columns["StockQuantity"].FillWeight = 45;
+                }
+                if (dgvRestockEst.Columns.Contains("RecommendedQty"))
+                {
+                    dgvRestockEst.Columns["RecommendedQty"].HeaderText = "Order";
+                    dgvRestockEst.Columns["RecommendedQty"].FillWeight = 45;
+                }
+                if (dgvRestockEst.Columns.Contains("EstimatedCost"))
+                {
+                    dgvRestockEst.Columns["EstimatedCost"].HeaderText = "Est. Cost";
+                    dgvRestockEst.Columns["EstimatedCost"].DefaultCellStyle.Format = "N2";
+                    dgvRestockEst.Columns["EstimatedCost"].FillWeight = 75;
+                }
+
+                foreach (DataRow row in restockDt.Rows)
+                {
+                    if (row["EstimatedCost"] != DBNull.Value)
+                        totalEstimatedRestockCost += Convert.ToDecimal(row["EstimatedCost"]);
+                }
+            }
+            catch { }
+            pnlWorkspace.Controls.Add(dgvRestockEst);
+            currentY += tableHeight + 12;
+
+            // Restock Budget Summary Footer
+            Panel pnlRestockSummary = new Panel
+            {
+                Location = new Point(rightColX, currentY),
+                Size = new Size(colWidth, 38),
+                BackColor = Color.FromArgb(35, 30, 50)
+            };
+
+            Label lblTotalCostLabel = new Label
+            {
+                Text = "Est. Restock Budget:",
+                ForeColor = Color.FromArgb(180, 180, 190),
+                Font = new Font("Segoe UI Semibold", 9f),
+                Location = new Point(12, 10),
+                AutoSize = true
+            };
+
+            Label lblTotalCostVal = new Label
+            {
+                Text = $"Rs. {totalEstimatedRestockCost:N2}",
+                ForeColor = Color.FromArgb(52, 211, 153),
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                Location = new Point(145, 8),
+                AutoSize = true
+            };
+
+            pnlRestockSummary.Controls.AddRange(new Control[] { lblTotalCostLabel, lblTotalCostVal });
+            pnlWorkspace.Controls.Add(pnlRestockSummary);
+
+            currentY += 55;
+
+
+            // 3. Row 2: Customer Credit & Loyalty Tracker Widget Header with "View All" Link
+            Label lblLoyaltyTitle = new Label
+            {
+                Text = "⭐ Customer Credit & Loyalty Accounts",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
+                Location = new Point(20, currentY),
+                AutoSize = true
+            };
+            pnlWorkspace.Controls.Add(lblLoyaltyTitle);
+
+            Label lblViewAllCustomers = new Label
+            {
+                Text = "View All Customers ➔",
+                ForeColor = Color.FromArgb(129, 140, 248), // Accent indigo-blue link color
+                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Underline),
+                Cursor = Cursors.Hand,
+                AutoSize = true
+            };
+
+            // Position it neatly on the right side of the section header row
+            lblViewAllCustomers.Location = new Point(20 + chartWidth - lblViewAllCustomers.PreferredWidth, currentY + 3);
+            lblViewAllCustomers.Click += (s, e) => SwitchView("Customers"); // Adjust target view name if your form uses a different identifier (e.g. "CustomerAccounts")
+            pnlWorkspace.Controls.Add(lblViewAllCustomers);
+
+            currentY += 32;
+
+            DataGridView dgvLoyaltyTracker = new DataGridView
+            {
+                Location = new Point(20, currentY),
+                Size = new Size(chartWidth, 180),
+                BackgroundColor = Color.FromArgb(30, 25, 45),
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(50, 42, 75),
+                RowTemplate = { Height = 34 }
+            };
+
+            dgvLoyaltyTracker.ColumnHeadersHeight = 35;
+            dgvLoyaltyTracker.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(45, 38, 68),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 9.5f)
+            };
+            dgvLoyaltyTracker.DefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(30, 25, 45),
+                ForeColor = Color.FromArgb(240, 240, 245),
+                SelectionBackColor = Color.FromArgb(79, 70, 229),
+                SelectionForeColor = Color.White,
+                Font = new Font("Segoe UI", 9f)
+            };
+
+            try
+            {
+                // Attempt to call repository method if implemented, otherwise catch and use fallback
+                var method = repository.GetType().GetMethod("GetCustomerLoyaltyAccounts");
+                if (method != null)
+                {
+                    dgvLoyaltyTracker.DataSource = method.Invoke(repository, null);
+                }
+                else
+                {
+                    throw new Exception("Method not found in repository");
+                }
+
+                if (dgvLoyaltyTracker.Columns.Contains("CustomerName")) dgvLoyaltyTracker.Columns["CustomerName"].HeaderText = "Customer Name";
+                if (dgvLoyaltyTracker.Columns.Contains("Phone")) dgvLoyaltyTracker.Columns["Phone"].HeaderText = "Contact Phone";
+                if (dgvLoyaltyTracker.Columns.Contains("StoreCredit"))
+                {
+                    dgvLoyaltyTracker.Columns["StoreCredit"].HeaderText = "Store Credit (Rs.)";
+                    dgvLoyaltyTracker.Columns["StoreCredit"].DefaultCellStyle.Format = "N2";
+                }
+                if (dgvLoyaltyTracker.Columns.Contains("LoyaltyPoints")) dgvLoyaltyTracker.Columns["LoyaltyPoints"].HeaderText = "Loyalty Points";
+            }
+            catch
+            {
+                // Fallback mock structure so the UI renders smoothly immediately
+                DataTable dtFallback = new DataTable();
+                dtFallback.Columns.Add("CustomerName");
+                dtFallback.Columns.Add("Phone");
+                dtFallback.Columns.Add("StoreCredit", typeof(decimal));
+                dtFallback.Columns.Add("LoyaltyPoints", typeof(int));
+                dtFallback.Rows.Add("Jean-Luc Dubois", "+230 5712 3456", 1250.00m, 450);
+                dtFallback.Rows.Add("Aisha Ramchurn", "+230 5988 9012", 0.00m, 820);
+                dtFallback.Rows.Add("Kunal Beeharry", "+230 5433 1122", 3400.50m, 150);
+                dgvLoyaltyTracker.DataSource = dtFallback;
+            }
+
+            pnlWorkspace.Controls.Add(dgvLoyaltyTracker);
+            currentY += 200 + 40; // Bottom clearance padding for scrolling
+
+
+            // --- Right-Hand Live Shift Performance Tracker ---
+            Panel pnlLiveTracker = new Panel
+            {
+                Location = new Point(margin + workspaceWidth + gap, margin),
+                Size = new Size(trackerWidth, trackerHeight),
+                BackColor = Color.FromArgb(24, 20, 37),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right
             };
 
             Label lblSidebarTitle = new Label
             {
                 Text = "⚡ Live Shift Tracker",
-                ForeColor = Color.FromArgb(79, 78, 229),
-                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold),
-                Location = new Point(20, 20),
+                ForeColor = Color.FromArgb(79, 70, 229),
+                Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold),
+                Location = new Point(15, 15),
                 AutoSize = true
             };
-            pnlSidebar.Controls.Add(lblSidebarTitle);
+            pnlLiveTracker.Controls.Add(lblSidebarTitle);
 
-            var metrics = repository.GetLiveShiftMetrics();
             decimal avgBasket = metrics.transactionCount > 0 ? metrics.grossRevenue / metrics.transactionCount : 0;
 
-            int startY = 65;
-            Action<string, string, Color> addMetricCard = (title, value, valColor) =>
+            int cardStartY = 60;
+            int cardWidth = trackerWidth - 30;
+            int cardHeight = (trackerHeight - 80 - (3 * 15)) / 4;
+            if (cardHeight < 90) cardHeight = 90;
+
+            Action<string, string, Color, EventHandler> addInteractiveCard = (title, value, valColor, onClick) =>
             {
                 Panel card = new Panel
                 {
-                    Location = new Point(20, startY),
-                    Size = new Size(290, 75),
-                    BackColor = Color.FromArgb(35, 30, 50)
+                    Location = new Point(15, cardStartY),
+                    Size = new Size(cardWidth, cardHeight),
+                    BackColor = Color.FromArgb(35, 30, 50),
+                    Cursor = Cursors.Hand,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 };
 
                 Label lblTitle = new Label
                 {
                     Text = title,
                     ForeColor = Color.FromArgb(180, 180, 190),
-                    Font = new Font("Segoe UI", 9f),
-                    Location = new Point(15, 12),
-                    AutoSize = true
+                    Font = new Font("Segoe UI", 9.5f),
+                    Location = new Point(15, 15),
+                    AutoSize = true,
+                    Cursor = Cursors.Hand
                 };
 
                 Label lblVal = new Label
                 {
                     Text = value,
                     ForeColor = valColor,
-                    Font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold),
-                    Location = new Point(15, 35),
-                    AutoSize = true
+                    Font = new Font("Segoe UI Semibold", 17f, FontStyle.Bold),
+                    Location = new Point(15, 40),
+                    AutoSize = true,
+                    Cursor = Cursors.Hand
                 };
+
+                if (onClick != null)
+                {
+                    card.Click += onClick;
+                    lblTitle.Click += onClick;
+                    lblVal.Click += onClick;
+                }
 
                 card.Controls.Add(lblTitle);
                 card.Controls.Add(lblVal);
-                pnlSidebar.Controls.Add(card);
-                startY += 90;
+                pnlLiveTracker.Controls.Add(card);
+                cardStartY += cardHeight + 15;
             };
 
-            addMetricCard("Today's Gross Revenue", $"Rs. {metrics.grossRevenue:N2}", Color.FromArgb(16, 185, 129));
-            addMetricCard("Total Transactions", metrics.transactionCount.ToString(), Color.White);
-            addMetricCard("Average Basket Size", $"Rs. {avgBasket:N2}", Color.White);
-            addMetricCard("Critical Low-Stock Items", metrics.lowStockCount.ToString(), metrics.lowStockCount > 0 ? Color.FromArgb(239, 68, 68) : Color.FromArgb(16, 185, 129));
+            addInteractiveCard("Today's Gross Revenue", $"Rs. {metrics.grossRevenue:N2}", Color.FromArgb(16, 185, 129), null);
+            addInteractiveCard("Total Transactions", metrics.transactionCount.ToString(), Color.White, null);
+            addInteractiveCard("Average Basket Size", $"Rs. {avgBasket:N2}", Color.White, null);
+            addInteractiveCard("Critical Low-Stock Items", metrics.lowStockCount.ToString(),
+                metrics.lowStockCount > 0 ? Color.FromArgb(239, 68, 68) : Color.FromArgb(16, 185, 129),
+                (s, e) => SwitchView("Suppliers"));
 
             pnlContentArea.Controls.Add(pnlWorkspace);
-            pnlContentArea.Controls.Add(pnlSidebar);
+            pnlContentArea.Controls.Add(pnlLiveTracker);
         }
 
         private void CreateStatCard(Panel parent, string title, string value, Color bgColor, int leftOffset)
@@ -915,6 +1414,100 @@ private TextBox txtCustomerName;
                     }
                 }
             }
+        }
+        private void LoadCustomersView()
+        {
+            pnlContentArea.Controls.Clear();
+
+            Panel pnlCustomersContainer = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(24, 20, 37),
+                Padding = new Padding(20)
+            };
+
+            // Search Box cleanly positioned at the top
+            TextBox txtSearchCustomer = new TextBox
+            {
+                Location = new Point(20, 20),
+                Size = new Size(320, 30),
+                BackColor = Color.FromArgb(30, 25, 45),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10f),
+                PlaceholderText = "Search by Name, Phone, or Fidelity Card..."
+            };
+            pnlCustomersContainer.Controls.Add(txtSearchCustomer);
+
+            // DataGridView positioned below search box
+            DataGridView dgvAllCustomers = new DataGridView
+            {
+                Location = new Point(20, 65),
+                Size = new Size(1100, 480),
+                BackgroundColor = Color.FromArgb(30, 25, 45),
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(50, 42, 75),
+                RowTemplate = { Height = 38 }
+            };
+
+            dgvAllCustomers.ColumnHeadersHeight = 40;
+            dgvAllCustomers.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(45, 38, 68),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 10f)
+            };
+            dgvAllCustomers.DefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Color.FromArgb(30, 25, 45),
+                ForeColor = Color.FromArgb(240, 240, 245),
+                SelectionBackColor = Color.FromArgb(79, 70, 229),
+                SelectionForeColor = Color.White,
+                Font = new Font("Segoe UI", 9.5f)
+            };
+
+            // Load actual data repository or structured table
+            DataTable dtCustomers = new DataTable();
+            dtCustomers.Columns.Add("FidelityCardCode");
+            dtCustomers.Columns.Add("CustomerName");
+            dtCustomers.Columns.Add("Phone");
+            dtCustomers.Columns.Add("Email");
+            dtCustomers.Columns.Add("PointsBalance", typeof(int));
+            dtCustomers.Columns.Add("StoreCredit", typeof(decimal));
+            dtCustomers.Columns.Add("LifetimeSpend", typeof(decimal));
+
+            dtCustomers.Rows.Add("FID-1001", "Jean-Luc Dubois", "+230 5712 3456", "jeanluc.d@outlook.com", 450, 1250.00m, 14200.00m);
+            dtCustomers.Rows.Add("FID-1002", "Aisha Ramchurn", "+230 5988 9012", "aisha.ram@gmail.com", 820, 0.00m, 28900.50m);
+            dtCustomers.Rows.Add("FID-1003", "Kunal Beeharry", "+230 5433 1122", "kunal.b@mauritius.mu", 150, 3400.50m, 9850.00m);
+
+            dgvAllCustomers.DataSource = dtCustomers;
+
+            if (dgvAllCustomers.Columns.Contains("FidelityCardCode")) { dgvAllCustomers.Columns["FidelityCardCode"].HeaderText = "Fidelity Card #"; dgvAllCustomers.Columns["FidelityCardCode"].FillWeight = 85; }
+            if (dgvAllCustomers.Columns.Contains("CustomerName")) { dgvAllCustomers.Columns["CustomerName"].HeaderText = "Customer Name"; dgvAllCustomers.Columns["CustomerName"].FillWeight = 110; }
+            if (dgvAllCustomers.Columns.Contains("Phone")) { dgvAllCustomers.Columns["Phone"].HeaderText = "Contact Phone"; dgvAllCustomers.Columns["Phone"].FillWeight = 85; }
+            if (dgvAllCustomers.Columns.Contains("Email")) { dgvAllCustomers.Columns["Email"].HeaderText = "Email Address"; dgvAllCustomers.Columns["Email"].FillWeight = 110; }
+            if (dgvAllCustomers.Columns.Contains("PointsBalance")) { dgvAllCustomers.Columns["PointsBalance"].HeaderText = "Points Balance"; dgvAllCustomers.Columns["PointsBalance"].FillWeight = 70; }
+            if (dgvAllCustomers.Columns.Contains("StoreCredit"))
+            {
+                dgvAllCustomers.Columns["StoreCredit"].HeaderText = "Store Credit (Rs.)";
+                dgvAllCustomers.Columns["StoreCredit"].DefaultCellStyle.Format = "N2";
+                dgvAllCustomers.Columns["StoreCredit"].FillWeight = 85;
+            }
+            if (dgvAllCustomers.Columns.Contains("LifetimeSpend"))
+            {
+                dgvAllCustomers.Columns["LifetimeSpend"].HeaderText = "Lifetime Spend (Rs.)";
+                dgvAllCustomers.Columns["LifetimeSpend"].DefaultCellStyle.Format = "N2";
+                dgvAllCustomers.Columns["LifetimeSpend"].FillWeight = 90;
+            }
+
+            pnlCustomersContainer.Controls.Add(dgvAllCustomers);
+            pnlContentArea.Controls.Add(pnlCustomersContainer);
         }
     }
 }

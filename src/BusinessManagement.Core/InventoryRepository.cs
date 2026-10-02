@@ -1,7 +1,9 @@
-﻿using System;
+﻿using BusinessManagement.Core;
+using Microsoft.Data.Sqlite;
+using System;
 using System.Collections.Generic;
 using System.Data;
-using Microsoft.Data.Sqlite;
+using System.Data.SqlClient;
 
 namespace BusinessManagement.App
 {
@@ -541,6 +543,102 @@ namespace BusinessManagement.App
                 }
             }
             return dt;
+        }
+        public DataTable GetTopSellingProducts()
+        {
+            DataTable dt = new DataTable();
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = @"
+                    SELECT 
+                        p.ProductName AS ItemName,
+                        SUM(ii.Quantity) AS TotalSold,
+                        SUM(ii.Quantity * ii.UnitPrice) AS Revenue
+                    FROM InvoiceItems ii
+                    JOIN Invoices i ON ii.InvoiceID = i.InvoiceID
+                    JOIN Products p ON ii.ProductID = p.ProductID
+                    WHERE DATE(i.SaleDate) = DATE('now')
+                    GROUP BY p.ProductID, p.ProductName
+                    ORDER BY TotalSold DESC
+                    LIMIT 5;";
+
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        dt.Load(reader);
+                    }
+                }
+            }
+            return dt;
+        }
+        public DataTable GetCriticalLowStockItems()
+        {
+            DataTable dt = new DataTable();
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = "SELECT Id, Name, StockQuantity, ReorderLevel FROM Inventory WHERE StockQuantity <= ReorderLevel";
+                using (var cmd = new Microsoft.Data.Sqlite.SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        dt.Load(reader);
+                    }
+                }
+            }
+            return dt;
+        }
+        public CustomerFidelityModel GetCustomerByFidelityCard(string cardCode)
+        {
+            CustomerFidelityModel customer = null;
+            string query = @"SELECT CustomerID, FidelityCardCode, CustomerName, Phone, PointsBalance, StoreCredit 
+                     FROM Customers 
+                     WHERE FidelityCardCode = @CardCode";
+
+            using (SqliteConnection conn = new SqliteConnection(connectionString))
+            {
+                using (SqliteCommand cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@CardCode", cardCode.Trim());
+                    conn.Open();
+                    using (SqliteDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            customer = new CustomerFidelityModel
+                            {
+                                CustomerID = reader.GetInt32(0),
+                                FidelityCardCode = reader.GetString(1),
+                                CustomerName = reader.GetString(2),
+                                Phone = reader.GetString(3),
+                                PointsBalance = reader.GetInt32(4),
+                                StoreCredit = reader.GetDecimal(5)
+                            };
+                        }
+                    }
+                }
+            }
+            return customer;
+        }
+        public void UpdateCustomerLoyalty(int customerID, int newPointsBalance, decimal newStoreCredit)
+        {
+            string query = @"UPDATE Customers 
+                     SET PointsBalance = @Points, StoreCredit = @Credit 
+                     WHERE CustomerID = @ID";
+
+            using (SqliteConnection conn = new SqliteConnection(connectionString))
+            {
+                using (SqliteCommand cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Points", newPointsBalance);
+                    cmd.Parameters.AddWithValue("@Credit", newStoreCredit);
+                    cmd.Parameters.AddWithValue("@ID", customerID);
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
     }
 }

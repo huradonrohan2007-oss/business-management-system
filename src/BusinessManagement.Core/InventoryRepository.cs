@@ -8,21 +8,25 @@ namespace BusinessManagement.App
     public class InventoryRepository
     {
         private readonly string connectionString = "Data Source=inventory.db";
-
+        // ADD THIS CONSTRUCTOR:
+        public InventoryRepository()
+        {
+            InitializeDatabase();
+        }
         public void InitializeDatabase()
         {
             using (var conn = new SqliteConnection(connectionString))
             {
                 conn.Open();
-                // Add this inside your InitializeDatabase() table creation block:
+
                 string tableSuppliers = @"
-    CREATE TABLE IF NOT EXISTS Suppliers (
-    SupplierID INTEGER PRIMARY KEY AUTOINCREMENT,
-    SupplierName TEXT NOT NULL,
-    ContactPerson TEXT NOT NULL,
-    Phone TEXT NOT NULL,
-    Email TEXT NOT NULL
-);";
+            CREATE TABLE IF NOT EXISTS Suppliers (
+                SupplierID INTEGER PRIMARY KEY AUTOINCREMENT,
+                SupplierName TEXT NOT NULL,
+                ContactPerson TEXT NOT NULL,
+                Phone TEXT NOT NULL,
+                Email TEXT NOT NULL
+            );";
                 using (var cmd = new SqliteCommand(tableSuppliers, conn)) { cmd.ExecuteNonQuery(); }
 
                 // Seed default suppliers if empty
@@ -33,44 +37,45 @@ namespace BusinessManagement.App
                     if (count == 0)
                     {
                         string seedSuppliers = @"
-            INSERT INTO Suppliers (SupplierName, ContactPerson, Phone, Email) VALUES
-            ('Global Peripherals Ltd.', 'Marc Dupont', '+230 5712 3456', 'orders@globalperipherals.mu'),
-            ('TechCorp Logistics', 'Aisha Beeharry', '+230 5988 7890', 'supply@techcorp.mu'),
-            ('Island Office Solutions', 'Kevin Naidu', '+230 5433 1122', 'sales@islandoffice.mu');
-        ";
+                    INSERT INTO Suppliers (SupplierName, ContactPerson, Phone, Email) VALUES
+                    ('Global Peripherals Ltd.', 'Marc Dupont', '+230 5712 3456', 'orders@globalperipherals.mu'),
+                    ('TechCorp Logistics', 'Aisha Beeharry', '+230 5988 7890', 'supply@techcorp.mu'),
+                    ('Island Office Solutions', 'Kevin Naidu', '+230 5433 1122', 'sales@islandoffice.mu');
+                ";
                         using (var seedCmd = new SqliteCommand(seedSuppliers, conn)) { seedCmd.ExecuteNonQuery(); }
                     }
                 }
 
+                // Added CHECK constraint: StockQuantity CANNOT drop below 0 at the database level
                 string tableProducts = @"
-                    CREATE TABLE IF NOT EXISTS Products (
-                        ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        ProductName TEXT NOT NULL,
-                        SKU TEXT UNIQUE NOT NULL,
-                        Category TEXT NOT NULL,
-                        UnitPrice REAL NOT NULL,
-                        StockQuantity INTEGER NOT NULL,
-                        ReorderLevel INTEGER NOT NULL DEFAULT 10
-                    );";
+            CREATE TABLE IF NOT EXISTS Products (
+                ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
+                ProductName TEXT NOT NULL,
+                SKU TEXT UNIQUE NOT NULL,
+                Category TEXT NOT NULL,
+                UnitPrice REAL NOT NULL,
+                StockQuantity INTEGER NOT NULL CHECK (StockQuantity >= 0),
+                ReorderLevel INTEGER NOT NULL DEFAULT 10
+            );";
 
                 string tableInvoices = @"
-                    CREATE TABLE IF NOT EXISTS Invoices (
-                        InvoiceID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        CustomerName TEXT NOT NULL,
-                        SaleDate DATETIME NOT NULL,
-                        TotalAmount REAL NOT NULL
-                    );";
+            CREATE TABLE IF NOT EXISTS Invoices (
+                InvoiceID INTEGER PRIMARY KEY AUTOINCREMENT,
+                CustomerName TEXT NOT NULL,
+                SaleDate DATETIME NOT NULL,
+                TotalAmount REAL NOT NULL
+            );";
 
                 string tableInvoiceItems = @"
-                    CREATE TABLE IF NOT EXISTS InvoiceItems (
-                        ItemID INTEGER PRIMARY KEY AUTOINCREMENT,
-                        InvoiceID INTEGER NOT NULL,
-                        ProductID INTEGER NOT NULL,
-                        Quantity INTEGER NOT NULL,
-                        UnitPrice REAL NOT NULL,
-                        FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID),
-                        FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
-                    );";
+            CREATE TABLE IF NOT EXISTS InvoiceItems (
+                ItemID INTEGER PRIMARY KEY AUTOINCREMENT,
+                InvoiceID INTEGER NOT NULL,
+                ProductID INTEGER NOT NULL,
+                Quantity INTEGER NOT NULL,
+                UnitPrice REAL NOT NULL,
+                FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID),
+                FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+            );";
 
                 using (var cmd = new SqliteCommand(tableProducts, conn)) { cmd.ExecuteNonQuery(); }
                 using (var cmd = new SqliteCommand(tableInvoices, conn)) { cmd.ExecuteNonQuery(); }
@@ -84,14 +89,21 @@ namespace BusinessManagement.App
                     if (count == 0)
                     {
                         string seed = @"
-                            INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel) VALUES
-                            ('Wireless Mouse', 'SKU-001', 'Peripherals', 25.00, 45, 10),
-                            ('Mechanical Keyboard', 'SKU-002', 'Peripherals', 75.00, 8, 15),
-                            ('27 inch Monitor', 'SKU-003', 'Displays', 299.99, 5, 10),
-                            ('USB-C Hub', 'SKU-004', 'Accessories', 35.50, 22, 10);
-                        ";
+                    INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel) VALUES
+                    ('Wireless Mouse', 'SKU-001', 'Peripherals', 25.00, 45, 10),
+                    ('Mechanical Keyboard', 'SKU-002', 'Peripherals', 75.00, 8, 15),
+                    ('27 inch Monitor', 'SKU-003', 'Displays', 299.99, 5, 10),
+                    ('USB-C Hub', 'SKU-004', 'Accessories', 35.50, 22, 10);
+                ";
                         using (var seedCmd = new SqliteCommand(seed, conn)) { seedCmd.ExecuteNonQuery(); }
                     }
+                }
+
+                // Automatically fix any legacy negative stocks on startup
+                string fixNegativeQuery = "UPDATE Products SET StockQuantity = ReorderLevel * 2 WHERE StockQuantity < 0;";
+                using (var fixCmd = new SqliteCommand(fixNegativeQuery, conn))
+                {
+                    fixCmd.ExecuteNonQuery();
                 }
             }
         }
@@ -191,12 +203,17 @@ namespace BusinessManagement.App
                                 cmd.ExecuteNonQuery();
                             }
 
-                            string updateStock = "UPDATE Products SET StockQuantity = StockQuantity - @Quantity WHERE ProductID = @ProductID;";
+                            string updateStock = "UPDATE Products SET StockQuantity = StockQuantity - @Quantity WHERE ProductID = @ProductID AND StockQuantity >= @Quantity;";
                             using (var cmd = new SqliteCommand(updateStock, conn, transaction))
                             {
                                 cmd.Parameters.AddWithValue("@Quantity", item.Quantity);
                                 cmd.Parameters.AddWithValue("@ProductID", item.ProductID);
-                                cmd.ExecuteNonQuery();
+                                int rowsAffected = cmd.ExecuteNonQuery();
+                                // If no rows were affected, it means stock is insufficient; abort transaction!
+                                if (rowsAffected == 0)
+                                {
+                                    throw new InvalidOperationException($"Insufficient stock for product ID {item.ProductID}. Transaction aborted.");
+                                }
                             }
                         }
 
@@ -382,6 +399,148 @@ namespace BusinessManagement.App
                     return Convert.ToInt32(cmd.ExecuteScalar());
                 }
             }
+        }
+        public DataTable GetAutomatedRestockQueue()
+        {
+            DataTable dt = new DataTable();
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = @"
+            SELECT 
+                p.ProductID,
+                p.ProductName,
+                p.SKU,
+                p.StockQuantity,
+                p.ReorderLevel,
+                (p.ReorderLevel * 2 - p.StockQuantity) AS RecommendedQty,
+                COALESCE(s.SupplierID, 1) AS SupplierID,
+                COALESCE(s.SupplierName, 'Global Peripherals Ltd.') AS SupplierName,
+                ((p.ReorderLevel * 2 - p.StockQuantity) * p.UnitPrice) AS EstimatedCost
+            FROM Products p
+            LEFT JOIN Suppliers s ON s.SupplierID = 1
+            WHERE p.StockQuantity <= p.ReorderLevel;";
+
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        dt.Load(reader);
+                    }
+                }
+            }
+            return dt;
+        }
+        public void ResetNegativeStocks()
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = "UPDATE Products SET StockQuantity = ReorderLevel * 2 WHERE StockQuantity < 0;";
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        public void SeedDefaultData()
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+
+                // Check if products already exist
+                string checkQuery = "SELECT COUNT(*) FROM Products;";
+                using (var checkCmd = new SqliteCommand(checkQuery, conn))
+                {
+                    long count = (long)checkCmd.ExecuteScalar();
+                    if (count > 0) return; // Already seeded
+                }
+
+                // Insert default suppliers first
+                string insertSuppliers = @"
+            INSERT INTO Suppliers (SupplierName, ContactPerson, Email, Phone) 
+            VALUES ('Global Peripherals Ltd.', 'John Smith', 'contact@globalperipherals.com', '555-0192');";
+                using (var cmd = new SqliteCommand(insertSuppliers, conn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Insert healthy, positive starter products with correct reorder levels
+                string insertProducts = @"
+            INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel) VALUES 
+            ('Wireless Mouse', 'LOGI-MX01', 'Peripherals', 25.00, 25, 5),
+            ('Mechanical Keyboard', 'KEY-MECH02', 'Peripherals', 100.00, 15, 3),
+            ('27-inch 4K Monitor', 'MON-4K27', 'Displays', 350.00, 10, 5),
+            ('Studio Earphones', 'EAR-2KLP', 'Peripherals', 20.00, 40, 10);";
+                using (var cmd = new SqliteCommand(insertProducts, conn))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        public (decimal grossRevenue, int transactionCount, int lowStockCount) GetLiveShiftMetrics()
+        {
+            decimal revenue = 0;
+            int txCount = 0;
+            int lowStock = 0;
+
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+
+                // 1. Get today's total revenue and transaction count
+                string salesQuery = @"
+            SELECT COALESCE(SUM(TotalAmount), 0), COUNT(InvoiceID) 
+            FROM Invoices 
+            WHERE DATE(SaleDate) = DATE('now');";
+
+                using (var cmd = new SqliteCommand(salesQuery, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            revenue = reader.GetDecimal(0);
+                            txCount = reader.GetInt32(1);
+                        }
+                    }
+                }
+
+                // 2. Get current low stock count
+                string lowStockQuery = "SELECT COUNT(*) FROM Products WHERE StockQuantity <= ReorderLevel;";
+                using (var cmd = new SqliteCommand(lowStockQuery, conn))
+                {
+                    lowStock = Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
+
+            return (revenue, txCount, lowStock);
+        }
+        public DataTable GetRecentSalesTrend()
+        {
+            DataTable dt = new DataTable();
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = @"
+            SELECT 
+                DATE(SaleDate) AS SaleDate,
+                SUM(TotalAmount) AS DailyRevenue
+            FROM Invoices
+            GROUP BY DATE(SaleDate)
+            ORDER BY SaleDate ASC
+            LIMIT 7;";
+
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        dt.Load(reader);
+                    }
+                }
+            }
+            return dt;
         }
     }
 }

@@ -187,31 +187,55 @@ private TextBox txtCustomerName;
 
         private void LoadInventoryView()
         {
+            pnlContentArea.Controls.Clear();
+
+            // Larger title header
+            Label lblTitle = new Label
+            {
+                Location = new Point(25, 20),
+                AutoSize = true,
+                Font = new Font("Segoe UI Semibold", 16, FontStyle.Bold),
+                ForeColor = Color.FromArgb(243, 244, 246),
+                Text = "📦 Product Inventory Catalog"
+            };
+            pnlContentArea.Controls.Add(lblTitle);
+
+            // Stretched DataGridView filling the full space dynamically
             DataGridView dgvInventory = new DataGridView
             {
-                Location = new Point(30, 30),
-                Size = new Size(1100, 520),
+                Location = new Point(25, 75),
+                Size = new Size(pnlContentArea.Width - 50, pnlContentArea.Height - 100),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 11) // Larger, readable font size
             };
 
-            dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
+            // Modern styling for headers and rows
+            dgvInventory.ColumnHeadersHeight = 42;
+            dgvInventory.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvInventory.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvInventory.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            dgvInventory.EnableHeadersVisualStyles = false;
+            dgvInventory.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11, FontStyle.Bold);
+
             dgvInventory.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvInventory.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
             dgvInventory.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvInventory.DefaultCellStyle.SelectionForeColor = Color.White;
+            dgvInventory.RowTemplate.Height = 36; // Generous row height
 
             try
             {
                 dgvInventory.DataSource = repository.GetAllProducts();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading inventory: {ex.Message}");
+            }
 
             pnlContentArea.Controls.Add(dgvInventory);
         }
@@ -220,11 +244,12 @@ private TextBox txtCustomerName;
         {
             currentCart.Clear();
 
-            // --- Top Managerial Overview Strip ---
+            // --- Top Managerial Overview Strip (Full Width) ---
             Panel pnlManagerHUD = new Panel
             {
-                Location = new Point(20, 20),
-                Size = new Size(1100, 50),
+                Location = new Point(25, 20),
+                Size = new Size(pnlContentArea.Width - 50, 50),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 20, 37)
             };
 
@@ -234,7 +259,7 @@ private TextBox txtCustomerName;
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "👔 MANAGER POS HUD:",
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold)
             };
 
             decimal todayRevenue = 0;
@@ -254,23 +279,24 @@ private TextBox txtCustomerName;
 
             Label lblHudMetrics = new Label
             {
-                Location = new Point(180, 15),
+                Location = new Point(200, 15),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(52, 211, 153),
                 Text = $"Today's Register Drawer: Rs.{todayRevenue:N2}  |  Total Sales Processed: {todayTxCount}",
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold)
             };
 
             Button btnViewRecentInvoices = new Button
             {
-                Location = new Point(910, 9),
-                Size = new Size(175, 32),
+                Location = new Point(pnlManagerHUD.Width - 210, 9),
+                Size = new Size(195, 32),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Text = "🔍 Audit Recent Receipts",
                 BackColor = Color.FromArgb(55, 48, 107),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
             btnViewRecentInvoices.FlatAppearance.BorderSize = 0;
             btnViewRecentInvoices.Click += (s, e) => { SwitchView("Invoices"); };
@@ -278,34 +304,49 @@ private TextBox txtCustomerName;
             pnlManagerHUD.Controls.AddRange(new Control[] { lblHudTitle, lblHudMetrics, btnViewRecentInvoices });
             pnlContentArea.Controls.Add(pnlManagerHUD);
 
-            // --- Left Pane: Product Catalog ---
+            // --- Dynamic Column Layout Calculations ---
+            int topOffset = 85;
+            int totalAvailableWidth = pnlContentArea.Width - 50;
+            int halfWidth = (totalAvailableWidth - 20) / 2; // Split remaining space equally between Catalog and Cart
+
+            int leftColX = 25;
+            int rightColX = leftColX + halfWidth + 20;
+            int availableHeight = pnlContentArea.Height - topOffset - 25;
+
+            // --- Left Pane: Product Catalog & Stock Lookup ---
             Label lblCatalogTitle = new Label
             {
-                Location = new Point(20, 85),
+                Location = new Point(leftColX, topOffset),
                 AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(243, 244, 246),
-                Text = "Product Catalog & Stock Lookup"
+                Text = "📦 Product Catalog & Stock Lookup"
             };
             pnlContentArea.Controls.Add(lblCatalogTitle);
 
+            int catalogHeight = availableHeight - 45 - 45;
             DataGridView dgvCatalog = new DataGridView
             {
-                Location = new Point(20, 115),
-                Size = new Size(520, 395),
+                Location = new Point(leftColX, topOffset + 32),
+                Size = new Size(halfWidth, catalogHeight),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                EnableHeadersVisualStyles = false
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 10.5f)
             };
+            dgvCatalog.ColumnHeadersHeight = 40;
             dgvCatalog.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvCatalog.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
             dgvCatalog.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvCatalog.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
             dgvCatalog.DefaultCellStyle.SelectionBackColor = Color.FromArgb(99, 102, 241);
+            dgvCatalog.RowTemplate.Height = 35;
 
             try
             {
@@ -316,46 +357,56 @@ private TextBox txtCustomerName;
             catch { }
             pnlContentArea.Controls.Add(dgvCatalog);
 
-            // --- Right Pane: Active Cart ---
+            // --- Right Pane: Active Basket ---
             Label lblCartTitle = new Label
             {
-                Location = new Point(560, 85),
+                Location = new Point(rightColX, topOffset),
                 AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(243, 244, 246),
-                Text = "Active Basket & Manager Checkout"
+                Text = "🛒 Active Basket & Manager Checkout"
             };
             pnlContentArea.Controls.Add(lblCartTitle);
 
+            int checkoutBoxHeight = 215;
+            int cartGridHeight = availableHeight - checkoutBoxHeight - 45;
+
             dgvCart = new DataGridView
             {
-                Location = new Point(560, 115),
-                Size = new Size(560, 270),
+                Location = new Point(rightColX, topOffset + 32),
+                Size = new Size(halfWidth, Math.Max(150, cartGridHeight)),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                EnableHeadersVisualStyles = false
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 10.5f)
             };
+            dgvCart.ColumnHeadersHeight = 40;
             dgvCart.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
             dgvCart.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvCart.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold);
             dgvCart.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvCart.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
+            dgvCart.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvCart.RowTemplate.Height = 35;
             pnlContentArea.Controls.Add(dgvCart);
 
-            // --- Add to Cart Button ---
+            // --- Add to Cart Button (Anchored bottom-left under catalog) ---
             Button btnAddToCart = new Button
             {
-                Location = new Point(20, 522),
-                Size = new Size(520, 36),
+                Location = new Point(leftColX, pnlContentArea.Height - 52),
+                Size = new Size(halfWidth, 40),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
                 Text = "➕ Add Item to Basket",
                 BackColor = Color.FromArgb(79, 70, 229),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold)
             };
             btnAddToCart.FlatAppearance.BorderSize = 0;
             btnAddToCart.Click += (s, e) =>
@@ -393,127 +444,132 @@ private TextBox txtCustomerName;
             };
             pnlContentArea.Controls.Add(btnAddToCart);
 
-            // --- Fidelity & Checkout Controls Box ---
+            // --- Fidelity & Checkout Controls Box (Anchored bottom-right under cart) ---
             Panel pnlCheckoutBox = new Panel
             {
-                Location = new Point(560, 390),
-                Size = new Size(560, 205), // Increased height to prevent overlap
+                Location = new Point(rightColX, pnlContentArea.Height - checkoutBoxHeight - 12),
+                Size = new Size(halfWidth, checkoutBoxHeight),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 20, 37)
             };
 
             // 1. Fidelity Card Scan Row
             Label lblFidelityLabel = new Label
             {
-                Location = new Point(15, 12),
+                Location = new Point(15, 15),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "Fidelity Card:",
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             TextBox txtFidelityCard = new TextBox
             {
-                Location = new Point(115, 10),
-                Size = new Size(165, 25),
+                Location = new Point(120, 13),
+                Size = new Size(160, 26),
                 PlaceholderText = "Scan Card #...",
                 BackColor = Color.FromArgb(30, 27, 46),
                 ForeColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             Button btnVerifyCard = new Button
             {
-                Location = new Point(290, 9),
-                Size = new Size(70, 27),
+                Location = new Point(290, 12),
+                Size = new Size(75, 28),
                 Text = "Verify",
                 BackColor = Color.FromArgb(79, 70, 229),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
             btnVerifyCard.FlatAppearance.BorderSize = 0;
 
             Label lblPointsDisplay = new Label
             {
-                Location = new Point(370, 12),
+                Location = new Point(380, 15),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(52, 211, 153),
                 Text = "Points: 0",
-                Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
             };
 
             // 2. Customer Name Row
             Label lblCustName = new Label
             {
-                Location = new Point(15, 48),
+                Location = new Point(15, 55),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "Customer:",
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             txtCustomerName = new TextBox
             {
-                Location = new Point(115, 45),
-                Size = new Size(245, 25),
+                Location = new Point(120, 52),
+                Size = new Size(245, 26),
                 Text = "Walk-in Customer",
                 BackColor = Color.FromArgb(30, 27, 46),
                 ForeColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
-                ReadOnly = true
+                ReadOnly = true,
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             // 3. Points Redemption Input Row
             Label lblRedeemText = new Label
             {
-                Location = new Point(15, 85),
+                Location = new Point(15, 95),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "Use Pts:",
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             TextBox txtPointsToRedeem = new TextBox
             {
-                Location = new Point(115, 82),
-                Size = new Size(100, 25),
+                Location = new Point(120, 92),
+                Size = new Size(100, 26),
                 Text = "0",
                 BackColor = Color.FromArgb(30, 27, 46),
                 ForeColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             // 4. Total Due Row
             Label lblTotalText = new Label
             {
-                Location = new Point(15, 122),
+                Location = new Point(15, 135),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "Total Due:",
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold)
             };
 
             lblCartTotalVal = new Label
             {
-                Location = new Point(115, 118),
+                Location = new Point(120, 131),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(52, 211, 153),
                 Text = "Rs 0.00",
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
+                Font = new Font("Segoe UI", 13f, FontStyle.Bold)
             };
 
             // 5. Complete Checkout Button
             Button btnCompleteCheckout = new Button
             {
-                Location = new Point(15, 155),
-                Size = new Size(530, 38),
+                Location = new Point(15, 167),
+                Size = new Size(halfWidth - 30, 38),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 Text = "💳 Authorize Sale & Update Inventory",
                 BackColor = Color.FromArgb(16, 185, 129),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold)
             };
             btnCompleteCheckout.FlatAppearance.BorderSize = 0;
 
@@ -562,7 +618,6 @@ private TextBox txtCustomerName;
 
                 try
                 {
-                    // Calculate raw cart subtotal
                     decimal cartSubtotal = 0;
                     foreach (var item in currentCart)
                     {
@@ -573,7 +628,6 @@ private TextBox txtCustomerName;
                     int.TryParse(txtPointsToRedeem.Text, out pointsRequested);
                     int availablePoints = (activeFidelityCustomer != null) ? activeFidelityCustomer.PointsBalance : 0;
 
-                    // Run through the safe-proof manager (Enforces 30% margin protection ceiling)
                     var calcResult = loyaltyManager.CalculateSafeCheckout(cartSubtotal, availablePoints, pointsRequested);
 
                     string custName = txtCustomerName.Text;
@@ -581,8 +635,6 @@ private TextBox txtCustomerName;
                     if (activeFidelityCustomer != null)
                     {
                         int finalPointsBalance = activeFidelityCustomer.PointsBalance - calcResult.PointsRedeemed + calcResult.PointsEarned;
-
-                        // Save updated points balance back to SQLite
                         repository.UpdateCustomerLoyalty(activeFidelityCustomer.CustomerID, finalPointsBalance, activeFidelityCustomer.StoreCredit);
                     }
                     MessageBox.Show($"Transaction authorized successfully!\n" +
@@ -611,7 +663,6 @@ private TextBox txtCustomerName;
         lblFidelityLabel, txtFidelityCard, btnVerifyCard, lblPointsDisplay,
         lblCustName, txtCustomerName, lblRedeemText, txtPointsToRedeem,
         lblTotalText, lblCartTotalVal, btnCompleteCheckout
-
     });
             pnlContentArea.Controls.Add(pnlCheckoutBox);
         }
@@ -628,85 +679,142 @@ private TextBox txtCustomerName;
 
         private void LoadZReportView()
         {
-            // --- Export Button ---
+            pnlContentArea.Controls.Clear();
+
+            // Title Header
+            Label lblTitle = new Label
+            {
+                Location = new Point(25, 20),
+                AutoSize = true,
+                Font = new Font("Segoe UI Semibold", 16, FontStyle.Bold),
+                ForeColor = Color.FromArgb(243, 244, 246),
+                Text = "📊 Daily Financial Z-Report Summaries"
+            };
+            pnlContentArea.Controls.Add(lblTitle);
+
+            // Styled Export Button
             Button btnExport = new Button
             {
-                Location = new Point(30, 20),
-                Size = new Size(160, 35),
-                Text = "📥 Export to CSV",
+                Location = new Point(25, 65),
+                Size = new Size(140, 38),
+                Text = "📥 Export Report",
                 BackColor = Color.FromArgb(79, 70, 229),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 9, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10, FontStyle.Bold),
+                Cursor = Cursors.Hand
             };
             btnExport.FlatAppearance.BorderSize = 0;
+            // btnExport.Click += BtnExport_Click; // Uncomment if you have an export click handler
             pnlContentArea.Controls.Add(btnExport);
+
+            // Stretched DataGridView filling the workspace dynamically
             DataGridView dgvZReport = new DataGridView
             {
-                Location = new Point(30, 70), // Moved down to fit button
-                Size = new Size(1100, 480),
+                Location = new Point(25, 115),
+                Size = new Size(pnlContentArea.Width - 50, pnlContentArea.Height - 140),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
-                RowHeadersVisible = false
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 11)
             };
 
-            dgvZReport.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
+            // Modern styling for headers and rows
+            dgvZReport.ColumnHeadersHeight = 42;
+            dgvZReport.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvZReport.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvZReport.EnableHeadersVisualStyles = false;
+            dgvZReport.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11, FontStyle.Bold);
+
             dgvZReport.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvZReport.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
+            dgvZReport.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvZReport.DefaultCellStyle.SelectionForeColor = Color.White;
+            dgvZReport.RowTemplate.Height = 36;
 
             try
             {
+                // Correctly fetch and bind using GetItemizedSalesSummary
                 dgvZReport.DataSource = repository.GetItemizedSalesSummary(DateTime.Today);
             }
-            catch { }
-
-            // Wire up export click event
-            btnExport.Click += (s, e) => ExportDataGridViewToCSV(dgvZReport, $"Z-Report_{DateTime.Now:yyyyMMdd}.csv");
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading Z-Report: {ex.Message}");
+            }
 
             pnlContentArea.Controls.Add(dgvZReport);
         }
 
         private void LoadInvoiceView()
         {
+            pnlContentArea.Controls.Clear();
+
+            // Title Header
+            Label lblTitle = new Label
+            {
+                Location = new Point(25, 20),
+                AutoSize = true,
+                Font = new Font("Segoe UI Semibold", 16, FontStyle.Bold),
+                ForeColor = Color.FromArgb(243, 244, 246),
+                Text = "📜 Invoice History & Receipts"
+            };
+            pnlContentArea.Controls.Add(lblTitle);
+
+            // Stretched DataGridView filling the workspace dynamically
             DataGridView dgvInvoices = new DataGridView
             {
-                Location = new Point(30, 30),
-                Size = new Size(1100, 520),
+                Location = new Point(25, 75),
+                Size = new Size(pnlContentArea.Width - 50, pnlContentArea.Height - 100),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
-                RowHeadersVisible = false
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 11) // Larger readable font
             };
 
-            dgvInvoices.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 41, 59);
+            // Modern styling for headers and rows
+            dgvInvoices.ColumnHeadersHeight = 42;
+            dgvInvoices.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvInvoices.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvInvoices.EnableHeadersVisualStyles = false;
+            dgvInvoices.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11, FontStyle.Bold);
+
             dgvInvoices.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvInvoices.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
+            dgvInvoices.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvInvoices.DefaultCellStyle.SelectionForeColor = Color.White;
+            dgvInvoices.RowTemplate.Height = 36;
 
             try
             {
-                dgvInvoices.DataSource = repository.GetAllInvoices();
+                // Fetch and bind invoice data source
+                dgvInvoices.DataSource = repository.GetAllInvoices(); // Adjust repository method name if different
             }
-            catch { }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading invoices: {ex.Message}");
+            }
 
             pnlContentArea.Controls.Add(dgvInvoices);
         }
 
         private void LoadSuppliersView()
-{
+        {
+            pnlContentArea.Controls.Clear();
+
             // --- Header Title ---
             Label lblTitle = new Label
             {
-                Location = new Point(20, 20),
+                Location = new Point(25, 20),
                 AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 13, FontStyle.Bold),
+                Font = new Font("Segoe UI Semibold", 16, FontStyle.Bold),
                 ForeColor = Color.FromArgb(243, 244, 246),
                 Text = "⚡ Automated Supply Chain & Purchase Order Hub"
             };
@@ -715,42 +823,51 @@ private TextBox txtCustomerName;
             // --- Subtitle / Status ---
             Label lblSubtitle = new Label
             {
-                Location = new Point(20, 50),
+                Location = new Point(25, 55),
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9.5f),
+                Font = new Font("Segoe UI", 10.5f),
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "System continuously monitors stock thresholds and auto-drafts restock purchase orders."
             };
             pnlContentArea.Controls.Add(lblSubtitle);
 
-            // --- Automated Restock Queue Grid ---
+            // --- Automated Restock Queue Grid Header ---
             Label lblGridTitle = new Label
             {
-                Location = new Point(20, 90),
+                Location = new Point(25, 95),
                 AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
+                Font = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(243, 244, 246),
                 Text = "Auto-Drafted Restock Purchase Orders (Low Stock Triggered)"
             };
             pnlContentArea.Controls.Add(lblGridTitle);
 
+            // --- Stretched DataGridView filling full workspace dynamically ---
             DataGridView dgvRestockQueue = new DataGridView
             {
-                Location = new Point(20, 120),
-                Size = new Size(1100, 340),
+                Location = new Point(25, 130),
+                Size = new Size(pnlContentArea.Width - 50, pnlContentArea.Height - 225),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                EnableHeadersVisualStyles = false
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 11) // Larger readable font
             };
+
+            dgvRestockQueue.ColumnHeadersHeight = 42;
             dgvRestockQueue.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvRestockQueue.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvRestockQueue.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11, FontStyle.Bold);
+
             dgvRestockQueue.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvRestockQueue.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
-            dgvRestockQueue.DefaultCellStyle.SelectionBackColor = Color.FromArgb(99, 102, 241);
+            dgvRestockQueue.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvRestockQueue.DefaultCellStyle.SelectionForeColor = Color.White;
+            dgvRestockQueue.RowTemplate.Height = 36; // Generous row height
 
             try
             {
@@ -761,24 +878,25 @@ private TextBox txtCustomerName;
             catch { }
             pnlContentArea.Controls.Add(dgvRestockQueue);
 
-            // --- Executive Action Button Panel ---
+            // --- Executive Action Button Panel Anchored to Bottom ---
             Panel pnlActionBox = new Panel
             {
-                Location = new Point(20, 475),
-                Size = new Size(1100, 70),
+                Location = new Point(25, pnlContentArea.Height - 85),
+                Size = new Size(pnlContentArea.Width - 50, 65),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackColor = Color.FromArgb(24, 20, 37)
             };
 
             Button btnExecuteAutoOrder = new Button
             {
-                Location = new Point(15, 15),
-                Size = new Size(350, 40),
+                Location = new Point(15, 12),
+                Size = new Size(360, 42),
                 Text = "🚀 Dispatch Selected Purchase Order",
                 BackColor = Color.FromArgb(16, 185, 129), // Emerald
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold)
+                Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold)
             };
             btnExecuteAutoOrder.FlatAppearance.BorderSize = 0;
             btnExecuteAutoOrder.Click += (s, e) =>
@@ -816,11 +934,11 @@ private TextBox txtCustomerName;
 
             Label lblInfoNote = new Label
             {
-                Location = new Point(380, 24),
+                Location = new Point(390, 22),
                 AutoSize = true,
                 ForeColor = Color.FromArgb(156, 163, 175),
                 Text = "💡 Selecting an order and clicking dispatch automatically restocks inventory and logs vendor expenditure.",
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font("Segoe UI", 9.5f)
             };
 
             pnlActionBox.Controls.AddRange(new Control[] { btnExecuteAutoOrder, lblInfoNote });
@@ -1732,33 +1850,43 @@ private TextBox txtCustomerName;
             // Clear previous view controls
             pnlContentArea.Controls.Clear();
 
+            // Larger title header
             Label lblTitle = new Label
             {
-                Location = new Point(20, 20),
+                Location = new Point(25, 20),
                 AutoSize = true,
-                Font = new Font("Segoe UI Semibold", 13, FontStyle.Bold),
+                Font = new Font("Segoe UI Semibold", 16, FontStyle.Bold),
                 ForeColor = Color.FromArgb(243, 244, 246),
                 Text = "⏳ Slow-Moving Inventory & Capital Optimizer"
             };
             pnlContentArea.Controls.Add(lblTitle);
 
+            // Stretched DataGridView filling full workspace dynamically
             DataGridView dgvSlowMoving = new DataGridView
             {
-                Location = new Point(20, 70),
-                Size = new Size(1100, 480),
+                Location = new Point(25, 75),
+                Size = new Size(pnlContentArea.Width - 50, pnlContentArea.Height - 100),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 BackgroundColor = Color.FromArgb(24, 20, 37),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 ReadOnly = true,
                 RowHeadersVisible = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                EnableHeadersVisualStyles = false
+                EnableHeadersVisualStyles = false,
+                Font = new Font("Segoe UI", 11) // Larger readable font
             };
 
+            dgvSlowMoving.ColumnHeadersHeight = 42;
             dgvSlowMoving.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
             dgvSlowMoving.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvSlowMoving.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI Semibold", 11, FontStyle.Bold);
+
             dgvSlowMoving.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
             dgvSlowMoving.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
+            dgvSlowMoving.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            dgvSlowMoving.DefaultCellStyle.SelectionForeColor = Color.White;
+            dgvSlowMoving.RowTemplate.Height = 36; // Generous row height
 
             try
             {

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Data.SqlClient;
+using System;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
@@ -194,6 +195,43 @@ namespace BusinessManagement.App
             {
                 MessageBox.Show($"PDF receipt file not found at:\n{pdfPath}", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+        public List<HourlySalesModel> GetHourlySalesToday()
+        {
+            var list = new List<HourlySalesModel>();
+            string connectionString = "YOUR_CONNECTION_STRING_HERE"; // Use your existing connection string variable
+
+            string query = @"
+        SELECT 
+            DATEPART(hour, InvoiceDate) AS SaleHour,
+            SUM(TotalAmount) AS HourlyRevenue,
+            COUNT(InvoiceID) AS TransactionCount
+        FROM Invoices
+        WHERE CAST(InvoiceDate AS DATE) = CAST(GETDATE() AS DATE)
+        GROUP BY DATEPART(hour, InvoiceDate)
+        ORDER BY SaleHour;";
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    conn.Open();
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            list.Add(new HourlySalesModel
+                            {
+                                SaleHour = reader.GetInt32(0),
+                                HourlyRevenue = reader.GetDecimal(1),
+                                TransactionCount = reader.GetInt32(2)
+                            });
+                        }
+                    }
+                }
+            }
+
+            return list;
         }
     }
 }

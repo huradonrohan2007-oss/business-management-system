@@ -48,6 +48,37 @@ namespace BusinessManagement.App
                     }
                 }
 
+                // Customers Table
+                string tableCustomers = @"
+    CREATE TABLE IF NOT EXISTS Customers (
+        CustomerID INTEGER PRIMARY KEY AUTOINCREMENT,
+        FidelityCardCode TEXT UNIQUE,
+        CustomerName TEXT,
+        Phone TEXT,
+        Email TEXT,
+        PointsBalance INTEGER DEFAULT 0,
+        StoreCredit DECIMAL(18,2) DEFAULT 0,
+        LifetimeSpend DECIMAL(18,2) DEFAULT 0
+    );";
+                using (var cmd = new SqliteCommand(tableCustomers, conn)) { cmd.ExecuteNonQuery(); }
+
+                // Seed default fidelity customers if empty
+                string checkCustomers = "SELECT COUNT(*) FROM Customers;";
+                using (var cmd = new SqliteCommand(checkCustomers, conn))
+                {
+                    long count = (long)cmd.ExecuteScalar();
+                    if (count == 0)
+                    {
+                        string seedCustomers = @"
+            INSERT INTO Customers (FidelityCardCode, CustomerName, Phone, Email, PointsBalance, StoreCredit, LifetimeSpend) VALUES
+            ('FID-1001', 'Jean-Luc Dubois', '+230 5712 3456', 'jeanluc.d@outlook.com', 450, 1250.00, 14200.00),
+            ('FID-1002', 'Aisha Ramchurn', '+230 5988 9012', 'aisha.ram@gmail.com', 820, 0.00, 28900.50),
+            ('FID-1003', 'Kunal Beeharry', '+230 5433 1122', 'kunal.b@mauritius.mu', 150, 3400.50, 9850.00);
+        ";
+                        using (var seedCmd = new SqliteCommand(seedCustomers, conn)) { seedCmd.ExecuteNonQuery(); }
+                    }
+                }
+
                 // Added CHECK constraint: StockQuantity CANNOT drop below 0 at the database level
                 string tableProducts = @"
             CREATE TABLE IF NOT EXISTS Products (
@@ -78,6 +109,7 @@ namespace BusinessManagement.App
                 FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID),
                 FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
             );";
+
 
                 using (var cmd = new SqliteCommand(tableProducts, conn)) { cmd.ExecuteNonQuery(); }
                 using (var cmd = new SqliteCommand(tableInvoices, conn)) { cmd.ExecuteNonQuery(); }
@@ -639,6 +671,116 @@ namespace BusinessManagement.App
                     cmd.ExecuteNonQuery();
                 }
             }
+        }
+        // 1. Fetch all customers dynamically for the DataGridView
+        public List<CustomerModel> GetAllCustomers()
+        {
+            var customers = new List<CustomerModel>();
+            string query = "SELECT CustomerID, FidelityCardCode, CustomerName, Phone, Email, PointsBalance, StoreCredit, LifetimeSpend FROM Customers;";
+
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            customers.Add(new CustomerModel
+                            {
+                                CustomerID = reader.GetInt32(0),
+                                FidelityCardCode = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                                CustomerName = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                Phone = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                                Email = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                                PointsBalance = reader.GetInt32(5),
+                                StoreCredit = reader.GetDecimal(6),
+                                LifetimeSpend = reader.GetDecimal(7)
+                            });
+                        }
+                    }
+                }
+            }
+            return customers;
+        }
+
+        // 2. Add a new customer
+        public void AddCustomer(CustomerModel customer)
+        {
+            string query = @"INSERT INTO Customers (FidelityCardCode, CustomerName, Phone, Email, PointsBalance, StoreCredit, LifetimeSpend) 
+                     VALUES (@Code, @Name, @Phone, @Email, @Points, @Credit, @Spend);";
+
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Code", customer.FidelityCardCode ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Name", customer.CustomerName ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Phone", customer.Phone ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Email", customer.Email ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Points", customer.PointsBalance);
+                    cmd.Parameters.AddWithValue("@Credit", customer.StoreCredit);
+                    cmd.Parameters.AddWithValue("@Spend", customer.LifetimeSpend);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        // 3. Update existing customer info (like phone number or name)
+        public void UpdateCustomer(CustomerModel customer)
+        {
+            string query = @"UPDATE Customers SET CustomerName = @Name, Phone = @Phone, Email = @Email, 
+                     PointsBalance = @Points, StoreCredit = @Credit WHERE CustomerID = @ID;";
+
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ID", customer.CustomerID);
+                    cmd.Parameters.AddWithValue("@Name", customer.CustomerName ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Phone", customer.Phone ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Email", customer.Email ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@Points", customer.PointsBalance);
+                    cmd.Parameters.AddWithValue("@Credit", customer.StoreCredit);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        // 4. Delete a customer record
+        public void DeleteCustomer(int customerId)
+        {
+            string query = "DELETE FROM Customers WHERE CustomerID = @ID;";
+
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ID", customerId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        public List<HourlySalesModel> GetHourlySalesToday()
+        {
+            var hourlySales = new List<HourlySalesModel>();
+
+            // Example query using SQLite / ADO.NET matching your project setup:
+            string query = @"
+        SELECT 
+            CAST(strftime('%H', SaleTimestamp) AS INTEGER) as SaleHour, 
+            SUM(TotalAmount) as HourlyRevenue 
+        FROM Invoices 
+        WHERE date(SaleTimestamp) = date('now') 
+        GROUP BY SaleHour";
+
+            // Execute your command/connection here and populate hourlySales...
+
+            return hourlySales;
         }
     }
 }

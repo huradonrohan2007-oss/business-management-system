@@ -1419,30 +1419,144 @@ private TextBox txtCustomerName;
         {
             pnlContentArea.Controls.Clear();
 
-            Panel pnlCustomersContainer = new Panel
+            // Root Container
+            Panel pnlRoot = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(24, 20, 37),
                 Padding = new Padding(20)
             };
 
-            // Search Box cleanly positioned at the top
-            TextBox txtSearchCustomer = new TextBox
+            // 1. Dedicated Header Panel (Completely isolated at the top so it never overlaps)
+            Panel pnlHeaderSection = new Panel
             {
-                Location = new Point(20, 20),
-                Size = new Size(320, 30),
-                BackColor = Color.FromArgb(30, 25, 45),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10f),
-                PlaceholderText = "Search by Name, Phone, or Fidelity Card..."
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = Color.FromArgb(24, 20, 37)
             };
-            pnlCustomersContainer.Controls.Add(txtSearchCustomer);
 
-            // DataGridView positioned below search box
+            Label lblHeader = new Label
+            {
+                Text = "Customer Directory & Fidelity Management",
+                Dock = DockStyle.Fill,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            pnlHeaderSection.Controls.Add(lblHeader);
+
+            // 2. Main Body Panel (Fills everything underneath the header)
+            Panel pnlBody = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(24, 20, 37)
+            };
+
+            // Right-Side Editor Panel
+            Panel pnlEditor = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 380,
+                BackColor = Color.FromArgb(30, 25, 45),
+                Padding = new Padding(15)
+            };
+
+            Label lblEditorTitle = new Label
+            {
+                Text = "Customer Record Manager",
+                Location = new Point(20, 15),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(52, 211, 153),
+                Font = new Font("Segoe UI Semibold", 11f, FontStyle.Bold)
+            };
+            pnlEditor.Controls.Add(lblEditorTitle);
+
+            int startY = 55;
+            int spacing = 58;
+
+            // Fidelity Code Field
+            Label lblC1 = new Label { Text = "Fidelity Card #", Location = new Point(20, startY), AutoSize = true, ForeColor = Color.FromArgb(156, 163, 175), Font = new Font("Segoe UI", 9f) };
+            TextBox txtCardCode = new TextBox { Location = new Point(20, startY + 20), Size = new Size(340, 26), BackColor = Color.FromArgb(24, 20, 37), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle };
+            pnlEditor.Controls.Add(lblC1);
+            pnlEditor.Controls.Add(txtCardCode);
+
+            // Customer Name Field
+            startY += spacing;
+            Label lblC2 = new Label { Text = "Customer Name", Location = new Point(20, startY), AutoSize = true, ForeColor = Color.FromArgb(156, 163, 175), Font = new Font("Segoe UI", 9f) };
+            TextBox txtName = new TextBox { Location = new Point(20, startY + 20), Size = new Size(340, 26), BackColor = Color.FromArgb(24, 20, 37), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle };
+            pnlEditor.Controls.Add(lblC2);
+            pnlEditor.Controls.Add(txtName);
+
+            // Phone Number Field
+            startY += spacing;
+            Label lblC3 = new Label { Text = "Phone Number", Location = new Point(20, startY), AutoSize = true, ForeColor = Color.FromArgb(156, 163, 175), Font = new Font("Segoe UI", 9f) };
+            TextBox txtPhone = new TextBox { Location = new Point(20, startY + 20), Size = new Size(340, 26), BackColor = Color.FromArgb(24, 20, 37), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle };
+            pnlEditor.Controls.Add(lblC3);
+            pnlEditor.Controls.Add(txtPhone);
+
+            // Email Address Field
+            startY += spacing;
+            Label lblC4 = new Label { Text = "Email Address", Location = new Point(20, startY), AutoSize = true, ForeColor = Color.FromArgb(156, 163, 175), Font = new Font("Segoe UI", 9f) };
+            TextBox txtEmail = new TextBox { Location = new Point(20, startY + 20), Size = new Size(340, 26), BackColor = Color.FromArgb(24, 20, 37), ForeColor = Color.White, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle };
+            pnlEditor.Controls.Add(lblC4);
+            pnlEditor.Controls.Add(txtEmail);
+
+            int selectedCustomerId = 0;
+            int btnY = startY + 60;
+
+            Button btnSaveNew = new Button
+            {
+                Text = "+ Add New",
+                Location = new Point(20, btnY),
+                Size = new Size(105, 36),
+                BackColor = Color.FromArgb(79, 70, 229),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Semibold", 9f)
+            };
+            btnSaveNew.FlatAppearance.BorderSize = 0;
+
+            Button btnUpdate = new Button
+            {
+                Text = "💾 Save Edit",
+                Location = new Point(135, btnY),
+                Size = new Size(105, 36),
+                BackColor = Color.FromArgb(16, 185, 129),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Semibold", 9f)
+            };
+            btnUpdate.FlatAppearance.BorderSize = 0;
+
+            Button btnDelete = new Button
+            {
+                Text = "🗑 Delete",
+                Location = new Point(250, btnY),
+                Size = new Size(105, 36),
+                BackColor = Color.FromArgb(239, 68, 68),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Font = new Font("Segoe UI Semibold", 9f)
+            };
+            btnDelete.FlatAppearance.BorderSize = 0;
+
+            pnlEditor.Controls.Add(btnSaveNew);
+            pnlEditor.Controls.Add(btnUpdate);
+            pnlEditor.Controls.Add(btnDelete);
+
+            // Grid Container
+            Panel pnlGridContainer = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 15, 0)
+            };
+
             DataGridView dgvAllCustomers = new DataGridView
             {
-                Location = new Point(20, 65),
-                Size = new Size(1100, 480),
+                Dock = DockStyle.Fill,
                 BackgroundColor = Color.FromArgb(30, 25, 45),
                 BorderStyle = BorderStyle.None,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
@@ -1453,10 +1567,10 @@ private TextBox txtCustomerName;
                 EnableHeadersVisualStyles = false,
                 CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
                 GridColor = Color.FromArgb(50, 42, 75),
-                RowTemplate = { Height = 38 }
+                RowTemplate = { Height = 40 }
             };
 
-            dgvAllCustomers.ColumnHeadersHeight = 40;
+            dgvAllCustomers.ColumnHeadersHeight = 42;
             dgvAllCustomers.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
             {
                 BackColor = Color.FromArgb(45, 38, 68),
@@ -1472,42 +1586,193 @@ private TextBox txtCustomerName;
                 Font = new Font("Segoe UI", 9.5f)
             };
 
-            // Load actual data repository or structured table
-            DataTable dtCustomers = new DataTable();
-            dtCustomers.Columns.Add("FidelityCardCode");
-            dtCustomers.Columns.Add("CustomerName");
-            dtCustomers.Columns.Add("Phone");
-            dtCustomers.Columns.Add("Email");
-            dtCustomers.Columns.Add("PointsBalance", typeof(int));
-            dtCustomers.Columns.Add("StoreCredit", typeof(decimal));
-            dtCustomers.Columns.Add("LifetimeSpend", typeof(decimal));
+            pnlGridContainer.Controls.Add(dgvAllCustomers);
 
-            dtCustomers.Rows.Add("FID-1001", "Jean-Luc Dubois", "+230 5712 3456", "jeanluc.d@outlook.com", 450, 1250.00m, 14200.00m);
-            dtCustomers.Rows.Add("FID-1002", "Aisha Ramchurn", "+230 5988 9012", "aisha.ram@gmail.com", 820, 0.00m, 28900.50m);
-            dtCustomers.Rows.Add("FID-1003", "Kunal Beeharry", "+230 5433 1122", "kunal.b@mauritius.mu", 150, 3400.50m, 9850.00m);
+            // Assemble Body
+            pnlBody.Controls.Add(pnlEditor);
+            pnlBody.Controls.Add(pnlGridContainer);
 
-            dgvAllCustomers.DataSource = dtCustomers;
+            // Assemble Root (Header docked top first, Body docked fill second)
+            pnlRoot.Controls.Add(pnlBody);
+            pnlRoot.Controls.Add(pnlHeaderSection);
 
-            if (dgvAllCustomers.Columns.Contains("FidelityCardCode")) { dgvAllCustomers.Columns["FidelityCardCode"].HeaderText = "Fidelity Card #"; dgvAllCustomers.Columns["FidelityCardCode"].FillWeight = 85; }
-            if (dgvAllCustomers.Columns.Contains("CustomerName")) { dgvAllCustomers.Columns["CustomerName"].HeaderText = "Customer Name"; dgvAllCustomers.Columns["CustomerName"].FillWeight = 110; }
-            if (dgvAllCustomers.Columns.Contains("Phone")) { dgvAllCustomers.Columns["Phone"].HeaderText = "Contact Phone"; dgvAllCustomers.Columns["Phone"].FillWeight = 85; }
-            if (dgvAllCustomers.Columns.Contains("Email")) { dgvAllCustomers.Columns["Email"].HeaderText = "Email Address"; dgvAllCustomers.Columns["Email"].FillWeight = 110; }
-            if (dgvAllCustomers.Columns.Contains("PointsBalance")) { dgvAllCustomers.Columns["PointsBalance"].HeaderText = "Points Balance"; dgvAllCustomers.Columns["PointsBalance"].FillWeight = 70; }
-            if (dgvAllCustomers.Columns.Contains("StoreCredit"))
+            pnlContentArea.Controls.Add(pnlRoot);
+
+            Action refreshGrid = () =>
             {
-                dgvAllCustomers.Columns["StoreCredit"].HeaderText = "Store Credit (Rs.)";
-                dgvAllCustomers.Columns["StoreCredit"].DefaultCellStyle.Format = "N2";
-                dgvAllCustomers.Columns["StoreCredit"].FillWeight = 85;
-            }
-            if (dgvAllCustomers.Columns.Contains("LifetimeSpend"))
+                dgvAllCustomers.DataSource = repository.GetAllCustomers();
+
+                if (dgvAllCustomers.Columns.Contains("CustomerID"))
+                    dgvAllCustomers.Columns["CustomerID"].Visible = false;
+
+                if (dgvAllCustomers.Columns.Contains("FidelityCardCode"))
+                {
+                    dgvAllCustomers.Columns["FidelityCardCode"].HeaderText = "Card #";
+                    dgvAllCustomers.Columns["FidelityCardCode"].FillWeight = 80;
+                }
+                if (dgvAllCustomers.Columns.Contains("CustomerName"))
+                {
+                    dgvAllCustomers.Columns["CustomerName"].HeaderText = "Customer Name";
+                    dgvAllCustomers.Columns["CustomerName"].FillWeight = 120;
+                }
+                if (dgvAllCustomers.Columns.Contains("Phone"))
+                {
+                    dgvAllCustomers.Columns["Phone"].HeaderText = "Phone";
+                    dgvAllCustomers.Columns["Phone"].FillWeight = 95;
+                }
+                if (dgvAllCustomers.Columns.Contains("Email"))
+                {
+                    dgvAllCustomers.Columns["Email"].HeaderText = "Email Address";
+                    dgvAllCustomers.Columns["Email"].FillWeight = 130;
+                }
+                if (dgvAllCustomers.Columns.Contains("PointsBalance"))
+                {
+                    dgvAllCustomers.Columns["PointsBalance"].HeaderText = "Points";
+                    dgvAllCustomers.Columns["PointsBalance"].FillWeight = 70;
+                }
+                if (dgvAllCustomers.Columns.Contains("StoreCredit"))
+                {
+                    dgvAllCustomers.Columns["StoreCredit"].HeaderText = "Credit";
+                    dgvAllCustomers.Columns["StoreCredit"].FillWeight = 75;
+                }
+                if (dgvAllCustomers.Columns.Contains("LifetimeSpend"))
+                {
+                    dgvAllCustomers.Columns["LifetimeSpend"].HeaderText = "Total Spend";
+                    dgvAllCustomers.Columns["LifetimeSpend"].FillWeight = 85;
+                }
+            };
+
+            refreshGrid();
+
+            dgvAllCustomers.CellClick += (s, e) =>
             {
-                dgvAllCustomers.Columns["LifetimeSpend"].HeaderText = "Lifetime Spend (Rs.)";
-                dgvAllCustomers.Columns["LifetimeSpend"].DefaultCellStyle.Format = "N2";
-                dgvAllCustomers.Columns["LifetimeSpend"].FillWeight = 90;
+                if (e.RowIndex >= 0)
+                {
+                    var cust = (CustomerModel)dgvAllCustomers.Rows[e.RowIndex].DataBoundItem;
+                    selectedCustomerId = cust.CustomerID;
+                    txtCardCode.Text = cust.FidelityCardCode;
+                    txtName.Text = cust.CustomerName;
+                    txtPhone.Text = cust.Phone;
+                    txtEmail.Text = cust.Email;
+                }
+            };
+
+            btnSaveNew.Click += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(txtName.Text))
+                {
+                    MessageBox.Show("Customer Name is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var newCust = new CustomerModel
+                {
+                    FidelityCardCode = string.IsNullOrWhiteSpace(txtCardCode.Text) ? "FID-" + new Random().Next(2000, 9999) : txtCardCode.Text.Trim(),
+                    CustomerName = txtName.Text.Trim(),
+                    Phone = txtPhone.Text.Trim(),
+                    Email = txtEmail.Text.Trim(),
+                    PointsBalance = 50,
+                    StoreCredit = 0.00m,
+                    LifetimeSpend = 0.00m
+                };
+
+                repository.AddCustomer(newCust);
+                refreshGrid();
+                MessageBox.Show("New customer registered successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
+
+            btnUpdate.Click += (s, e) =>
+            {
+                if (selectedCustomerId == 0)
+                {
+                    MessageBox.Show("Please select a customer from the table to edit.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var custToUpdate = new CustomerModel
+                {
+                    CustomerID = selectedCustomerId,
+                    FidelityCardCode = txtCardCode.Text.Trim(),
+                    CustomerName = txtName.Text.Trim(),
+                    Phone = txtPhone.Text.Trim(),
+                    Email = txtEmail.Text.Trim()
+                };
+
+                repository.UpdateCustomer(custToUpdate);
+                refreshGrid();
+                MessageBox.Show("Customer details updated successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
+
+            btnDelete.Click += (s, e) =>
+            {
+                if (selectedCustomerId == 0)
+                {
+                    MessageBox.Show("Please select a customer to delete.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var confirm = MessageBox.Show($"Are you sure you want to delete customer {txtName.Text}?", "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (confirm == DialogResult.Yes)
+                {
+                    repository.DeleteCustomer(selectedCustomerId);
+                    refreshGrid();
+                    selectedCustomerId = 0;
+                    txtCardCode.Clear();
+                    txtName.Clear();
+                    txtPhone.Clear();
+                    txtEmail.Clear();
+                }
+            };
+        }
+        private void LoadHourlySalesChart(Panel containerPanel)
+        {
+            Chart chartHourly = new Chart
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(30, 25, 45)
+            };
+
+            ChartArea chartArea = new ChartArea("HourlyArea");
+            chartArea.BackColor = Color.FromArgb(30, 25, 45);
+            chartArea.AxisX.LabelStyle.ForeColor = Color.FromArgb(156, 163, 175);
+            chartArea.AxisX.LineColor = Color.FromArgb(50, 42, 75);
+            chartArea.AxisX.MajorGrid.LineColor = Color.FromArgb(40, 32, 60);
+            chartArea.AxisY.LabelStyle.ForeColor = Color.FromArgb(156, 163, 175);
+            chartArea.AxisY.LineColor = Color.FromArgb(50, 42, 75);
+            chartArea.AxisY.MajorGrid.LineColor = Color.FromArgb(40, 32, 60);
+            chartHourly.ChartAreas.Add(chartArea);
+
+            Series seriesRevenue = new Series("Hourly Revenue")
+            {
+                ChartType = SeriesChartType.Column,
+                Color = Color.FromArgb(79, 70, 229),
+                BorderWidth = 0
+            };
+            chartHourly.Series.Add(seriesRevenue);
+
+            // Fetch data from repository
+            var hourlyData = repository.GetHourlySalesToday();
+
+            for (int hour = 8; hour <= 20; hour++)
+            {
+                string timeLabel = new DateTime(2026, 1, 1, hour, 0, 0).ToString("htt");
+                var record = hourlyData.FirstOrDefault(h => h.SaleHour == hour);
+                decimal revenue = record != null ? record.HourlyRevenue : 0;
+
+                seriesRevenue.Points.AddXY(timeLabel, revenue);
             }
 
-            pnlCustomersContainer.Controls.Add(dgvAllCustomers);
-            pnlContentArea.Controls.Add(pnlCustomersContainer);
+            Title chartTitle = new Title
+            {
+                Text = "Hourly Sales Velocity (Today)",
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI Semibold", 11f),
+                Alignment = ContentAlignment.TopLeft
+            };
+            chartHourly.Titles.Add(chartTitle);
+
+            containerPanel.Controls.Clear();
+            containerPanel.Controls.Add(chartHourly);
         }
     }
 }

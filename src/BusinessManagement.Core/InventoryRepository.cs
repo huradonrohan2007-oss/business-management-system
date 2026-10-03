@@ -765,22 +765,5 @@ namespace BusinessManagement.App
                 }
             }
         }
-        public List<HourlySalesModel> GetHourlySalesToday()
-        {
-            var hourlySales = new List<HourlySalesModel>();
-
-            // Example query using SQLite / ADO.NET matching your project setup:
-            string query = @"
-        SELECT 
-            CAST(strftime('%H', SaleTimestamp) AS INTEGER) as SaleHour, 
-            SUM(TotalAmount) as HourlyRevenue 
-        FROM Invoices 
-        WHERE date(SaleTimestamp) = date('now') 
-        GROUP BY SaleHour";
-
-            // Execute your command/connection here and populate hourlySales...
-
-            return hourlySales;
-        }
     }
 }

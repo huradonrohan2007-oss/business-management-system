@@ -26,12 +26,3 @@ CREATE TABLE InvoiceItems (
     Quantity INT NOT NULL,
     LineTotal DECIMAL(10,2) NOT NULL
 );
-
-SELECT 
-    DATEPART(hour, InvoiceDate) AS SaleHour,
-    SUM(TotalAmount) AS HourlyRevenue,
-    COUNT(InvoiceID) AS TransactionCount
-FROM Invoices
-WHERE CAST(InvoiceDate AS DATE) = CAST(GETDATE() AS DATE)
-GROUP BY DATEPART(hour, InvoiceDate)
-ORDER BY SaleHour;

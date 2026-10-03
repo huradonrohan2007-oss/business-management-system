@@ -1258,9 +1258,7 @@ private TextBox txtCustomerName;
             }
 
             pnlWorkspace.Controls.Add(dgvLoyaltyTracker);
-            currentY += 200 + 40; // Bottom clearance padding for scrolling
-
-
+            currentY += 200 + 20; // Bottom clearance padding for scrolling
             // --- Right-Hand Live Shift Performance Tracker ---
             Panel pnlLiveTracker = new Panel
             {
@@ -1723,56 +1721,6 @@ private TextBox txtCustomerName;
                     txtEmail.Clear();
                 }
             };
-        }
-        private void LoadHourlySalesChart(Panel containerPanel)
-        {
-            Chart chartHourly = new Chart
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(30, 25, 45)
-            };
-
-            ChartArea chartArea = new ChartArea("HourlyArea");
-            chartArea.BackColor = Color.FromArgb(30, 25, 45);
-            chartArea.AxisX.LabelStyle.ForeColor = Color.FromArgb(156, 163, 175);
-            chartArea.AxisX.LineColor = Color.FromArgb(50, 42, 75);
-            chartArea.AxisX.MajorGrid.LineColor = Color.FromArgb(40, 32, 60);
-            chartArea.AxisY.LabelStyle.ForeColor = Color.FromArgb(156, 163, 175);
-            chartArea.AxisY.LineColor = Color.FromArgb(50, 42, 75);
-            chartArea.AxisY.MajorGrid.LineColor = Color.FromArgb(40, 32, 60);
-            chartHourly.ChartAreas.Add(chartArea);
-
-            Series seriesRevenue = new Series("Hourly Revenue")
-            {
-                ChartType = SeriesChartType.Column,
-                Color = Color.FromArgb(79, 70, 229),
-                BorderWidth = 0
-            };
-            chartHourly.Series.Add(seriesRevenue);
-
-            // Fetch data from repository
-            var hourlyData = repository.GetHourlySalesToday();
-
-            for (int hour = 8; hour <= 20; hour++)
-            {
-                string timeLabel = new DateTime(2026, 1, 1, hour, 0, 0).ToString("htt");
-                var record = hourlyData.FirstOrDefault(h => h.SaleHour == hour);
-                decimal revenue = record != null ? record.HourlyRevenue : 0;
-
-                seriesRevenue.Points.AddXY(timeLabel, revenue);
-            }
-
-            Title chartTitle = new Title
-            {
-                Text = "Hourly Sales Velocity (Today)",
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI Semibold", 11f),
-                Alignment = ContentAlignment.TopLeft
-            };
-            chartHourly.Titles.Add(chartTitle);
-
-            containerPanel.Controls.Clear();
-            containerPanel.Controls.Add(chartHourly);
         }
     }
 }

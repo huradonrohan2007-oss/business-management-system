@@ -81,15 +81,17 @@ namespace BusinessManagement.App
 
                 // Added CHECK constraint: StockQuantity CANNOT drop below 0 at the database level
                 string tableProducts = @"
-            CREATE TABLE IF NOT EXISTS Products (
-                ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
-                ProductName TEXT NOT NULL,
-                SKU TEXT UNIQUE NOT NULL,
-                Category TEXT NOT NULL,
-                UnitPrice REAL NOT NULL,
-                StockQuantity INTEGER NOT NULL CHECK (StockQuantity >= 0),
-                ReorderLevel INTEGER NOT NULL DEFAULT 10
-            );";
+    CREATE TABLE IF NOT EXISTS Products (
+        ProductID INTEGER PRIMARY KEY AUTOINCREMENT,
+        ProductName TEXT NOT NULL,
+        SKU TEXT UNIQUE NOT NULL,
+        Category TEXT NOT NULL,
+        UnitPrice REAL NOT NULL,
+        StockQuantity INTEGER NOT NULL CHECK (StockQuantity >= 0),
+        ReorderLevel INTEGER NOT NULL DEFAULT 10,
+        BatchNumber TEXT DEFAULT '',
+        ExpiryDate TEXT DEFAULT NULL
+    );";
 
                 string tableInvoices = @"
             CREATE TABLE IF NOT EXISTS Invoices (
@@ -148,7 +150,7 @@ namespace BusinessManagement.App
             using (var conn = new SqliteConnection(connectionString))
             {
                 conn.Open();
-                string query = "SELECT ProductID, ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel FROM Products;";
+                string query = "SELECT ProductID, ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel, BatchNumber, ExpiryDate FROM Products;";
                 using (var cmd = new SqliteCommand(query, conn))
                 {
                     using (var reader = cmd.ExecuteReader())
@@ -761,6 +763,27 @@ namespace BusinessManagement.App
                 using (var cmd = new SqliteCommand(query, conn))
                 {
                     cmd.Parameters.AddWithValue("@ID", customerId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        public void AddProduct(Product product)
+        {
+            using (var conn = new SqliteConnection(connectionString))
+            {
+                conn.Open();
+                string query = @"INSERT INTO Products (ProductName, SKU, Category, UnitPrice, StockQuantity, ReorderLevel, BatchNumber, ExpiryDate) 
+                         VALUES (@ProductName, @SKU, @Category, @UnitPrice, @StockQuantity, @ReorderLevel, @BatchNumber, @ExpiryDate);";
+                using (var cmd = new SqliteCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ProductName", product.ProductName);
+                    cmd.Parameters.AddWithValue("@SKU", product.SKU);
+                    cmd.Parameters.AddWithValue("@Category", product.Category);
+                    cmd.Parameters.AddWithValue("@UnitPrice", product.UnitPrice);
+                    cmd.Parameters.AddWithValue("@StockQuantity", product.StockQuantity);
+                    cmd.Parameters.AddWithValue("@ReorderLevel", product.ReorderLevel);
+                    cmd.Parameters.AddWithValue("@BatchNumber", (object)product.BatchNumber ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@ExpiryDate", product.ExpiryDate.HasValue ? (object)product.ExpiryDate.Value.ToString("yyyy-MM-dd") : DBNull.Value);
                     cmd.ExecuteNonQuery();
                 }
             }

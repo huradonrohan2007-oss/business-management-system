@@ -9,7 +9,8 @@ namespace BusinessManagement.App
     {
         public Product NewProduct { get; private set; }
 
-        private TextBox txtSKU, txtName, txtCategory, txtPrice, txtStock, txtReorder;
+        private TextBox txtSKU, txtName, txtCategory, txtPrice, txtStock, txtReorder, txtBatchNumber;
+        private DateTimePicker dtpExpiryDate;
         private Button btnSave, btnCancel;
 
         public AddProductForm()
@@ -22,7 +23,7 @@ namespace BusinessManagement.App
         {
             this.Text = "Add New Inventory Product";
             this.Width = 380;
-            this.Height = 320;
+            this.Height = 410; // Increased height to fit extra rows
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -60,9 +61,19 @@ namespace BusinessManagement.App
             txtReorder = new TextBox { Location = new Point(txtX, startY + spacing * 5 - 3), Width = 200, Text = "5" };
             this.Controls.Add(txtReorder);
 
+            // --- Pharmacy: Batch Number ---
+            this.Controls.Add(new Label { Text = "Batch Number:", Location = new Point(lblX, startY + spacing * 6), AutoSize = true });
+            txtBatchNumber = new TextBox { Location = new Point(txtX, startY + spacing * 6 - 3), Width = 200 };
+            this.Controls.Add(txtBatchNumber);
+
+            // --- Pharmacy: Expiry Date ---
+            this.Controls.Add(new Label { Text = "Expiry Date:", Location = new Point(lblX, startY + spacing * 7), AutoSize = true });
+            dtpExpiryDate = new DateTimePicker { Location = new Point(txtX, startY + spacing * 7 - 3), Width = 200, Format = DateTimePickerFormat.Short };
+            this.Controls.Add(dtpExpiryDate);
+
             // Buttons
-            btnSave = new Button { Text = "Save", Location = new Point(130, startY + spacing * 6), Width = 95, DialogResult = DialogResult.OK };
-            btnCancel = new Button { Text = "Cancel", Location = new Point(235, startY + spacing * 6), Width = 95, DialogResult = DialogResult.Cancel };
+            btnSave = new Button { Text = "Save", Location = new Point(130, startY + spacing * 8), Width = 95, DialogResult = DialogResult.OK };
+            btnCancel = new Button { Text = "Cancel", Location = new Point(235, startY + spacing * 8), Width = 95, DialogResult = DialogResult.Cancel };
 
             btnSave.Click += BtnSave_Click;
 
@@ -97,7 +108,9 @@ namespace BusinessManagement.App
                 Category = txtCategory.Text.Trim(),
                 UnitPrice = price,
                 StockQuantity = stock,
-                ReorderLevel = reorder
+                ReorderLevel = reorder,
+                BatchNumber = txtBatchNumber.Text.Trim(),
+                ExpiryDate = dtpExpiryDate.Value
             };
         }
     }

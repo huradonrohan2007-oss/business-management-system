@@ -1,16 +1,42 @@
-namespace BusinessManagement.App;
+using System;
+using System.IO;
+using System.Windows.Forms;
 
-static class Program
+namespace BusinessManagement.App
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
-    [STAThread]
-    static void Main()
+    internal static class Program
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        ApplicationConfiguration.Initialize();
-        Application.Run(new MainDashboardForm());
-    }    
+        [STAThread]
+        static void Main()
+        {
+            ApplicationConfiguration.Initialize();
+
+            string profileFile = "business_profile.config";
+            string activeProfile = string.Empty;
+
+            if (File.Exists(profileFile))
+            {
+                activeProfile = File.ReadAllText(profileFile);
+            }
+
+            // If no profile is saved yet, launch the setup wizard on first boot
+            if (string.IsNullOrEmpty(activeProfile))
+            {
+                using (var wizard = new SetupWizardForm())
+                {
+                    if (wizard.ShowDialog() == DialogResult.OK)
+                    {
+                        activeProfile = wizard.SelectedProfile;
+                    }
+                    else
+                    {
+                        return; // Exit application if setup is cancelled
+                    }
+                }
+            }
+
+            // Launch your actual main dashboard
+            Application.Run(new MainDashboardForm());
+        }
+    }
 }

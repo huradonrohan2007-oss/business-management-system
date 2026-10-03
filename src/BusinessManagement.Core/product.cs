@@ -9,5 +9,9 @@
         public decimal UnitPrice { get; set; }
         public int StockQuantity { get; set; }
         public int ReorderLevel { get; set; }
+
+        // --- New Pharmacy-Specific Fields ---
+        public string BatchNumber { get; set; } = string.Empty;
+        public DateTime? ExpiryDate { get; set; }
     }
 }

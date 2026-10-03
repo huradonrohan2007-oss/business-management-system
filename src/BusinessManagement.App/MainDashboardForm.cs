@@ -87,6 +87,7 @@ private TextBox txtCustomerName;
             AddNavButton("📈  Z-Report & Financials", 265, (s, e) => SwitchView("ZReport"));
             AddNavButton("📄  Invoice Manager", 325, (s, e) => SwitchView("Invoices"));
             AddNavButton("🚚  Suppliers & Orders", 385, (s, e) => SwitchView("Suppliers"));
+            AddNavButton("⏳  Slow-Moving Stock", 445, (s, e) => SwitchView("SlowMoving"));
 
             // --- Top Header Bar ---
             Panel pnlHeader = new Panel
@@ -176,6 +177,10 @@ private TextBox txtCustomerName;
                 case "Customers":
                     lblHeaderTitle.Text = "Customer Directory & Loyalty Management";
                     LoadCustomersView();
+                    break;
+                case "SlowMoving":
+                    lblHeaderTitle.Text = "Slow-Moving Stock Analysis";
+                    LoadSlowMovingInventoryView();
                     break;
             }
         }
@@ -1721,6 +1726,70 @@ private TextBox txtCustomerName;
                     txtEmail.Clear();
                 }
             };
+        }
+        private void LoadSlowMovingInventoryView()
+        {
+            // Clear previous view controls
+            pnlContentArea.Controls.Clear();
+
+            Label lblTitle = new Label
+            {
+                Location = new Point(20, 20),
+                AutoSize = true,
+                Font = new Font("Segoe UI Semibold", 13, FontStyle.Bold),
+                ForeColor = Color.FromArgb(243, 244, 246),
+                Text = "⏳ Slow-Moving Inventory & Capital Optimizer"
+            };
+            pnlContentArea.Controls.Add(lblTitle);
+
+            DataGridView dgvSlowMoving = new DataGridView
+            {
+                Location = new Point(20, 70),
+                Size = new Size(1100, 480),
+                BackgroundColor = Color.FromArgb(24, 20, 37),
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                ReadOnly = true,
+                RowHeadersVisible = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                EnableHeadersVisualStyles = false
+            };
+
+            dgvSlowMoving.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(79, 70, 229);
+            dgvSlowMoving.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvSlowMoving.DefaultCellStyle.BackColor = Color.FromArgb(24, 20, 37);
+            dgvSlowMoving.DefaultCellStyle.ForeColor = Color.FromArgb(229, 231, 235);
+
+            try
+            {
+                // 1. Fetch products as a DataTable from the repository
+                DataTable dtProducts = repository.GetAllProducts();
+
+                // 2. Map DataTable rows to your SlowMovingItemModel list
+                var rawItems = new List<SlowMovingItemModel>();
+                foreach (DataRow row in dtProducts.Rows)
+                {
+                    rawItems.Add(new SlowMovingItemModel
+                    {
+                        SKU = row["SKU"].ToString(),
+                        ItemName = row["ProductName"].ToString(),
+                        StockQuantity = Convert.ToInt32(row["StockQuantity"]),
+                        UnitsSoldLast30Days = row.Table.Columns.Contains("UnitsSoldLast30Days") && row["UnitsSoldLast30Days"] != DBNull.Value
+                                            ? Convert.ToInt32(row["UnitsSoldLast30Days"]) : 0,
+                        UnitPrice = Convert.ToDecimal(row["UnitPrice"])
+                    });
+                }
+
+                // 3. Run through your intelligence engine
+                var slowItems = InventoryIntelligenceEngine.AnalyzeSlowMovers(rawItems);
+                dgvSlowMoving.DataSource = slowItems;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading analytics: {ex.Message}");
+            }
+
+            pnlContentArea.Controls.Add(dgvSlowMoving);
         }
     }
 }
